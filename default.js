@@ -33,6 +33,8 @@ function diff(master, newScene) {
 };
 function applyActions(dom, scene) {
     var keys = Object.keys(dom.children);
+    var result = { children: {} };
+
     for (var i=0; i<keys.length; i++) {
         var name = keys[i];
         var item = dom.children[name];
@@ -61,6 +63,7 @@ function applyActions(dom, scene) {
 
                 }
                 item.action = null;
+                result.children[name] = item;
                 break;
             case "update":
                 item.action = null;
@@ -87,12 +90,15 @@ function applyActions(dom, scene) {
                         item.instance.position.z = item.z;
                         break;
                 }
+                result.children[name] = item;
                 break;
             case "delete":
-                throw "not implemented!!";
+                item.instance.dispose();
                 break;    
         }
     }
+
+    return result;
 };
 
 window.addEventListener("load", (function() {
@@ -124,9 +130,10 @@ window.addEventListener("load", (function() {
         };
 
         var size = .35;
+        var slider = document.getElementById("size");
         var zsize=6;
         var ysize=6;
-        var xsize=6;
+        var xsize=slider.value;
         for (var z=-zsize/2; z<=zsize/2; z++) {
             for (var y=1; y<=ysize; y++) {
                 for (var x=-xsize/2; x<=xsize/2; x++) {
@@ -156,7 +163,7 @@ window.addEventListener("load", (function() {
         // camera.attachControl(canvas, true);
 
         lastDom = diff(lastDom, render(0));
-        applyActions(lastDom, scene);
+        lastDom = applyActions(lastDom, scene);
 
         // Our built-in 'ground' shape. Params: name, width, depth, subdivs, scene
         var ground = BABYLON.Mesh.CreateGround("ground1", 6, 6, 2, scene);
@@ -171,7 +178,7 @@ window.addEventListener("load", (function() {
     setInterval(function() {
         t++;
         lastDom = diff(lastDom, render(t));
-        applyActions(lastDom, scene);
+        lastDom = applyActions(lastDom, scene);
     }, 32);
 
     engine.runRenderLoop(function () {

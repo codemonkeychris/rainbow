@@ -54,6 +54,11 @@ function applyActions(dom, scene) {
                         item.instance.diffuse = new BABYLON.Color3(item.diffuse.r, item.diffuse.g, item.diffuse.b);
                         item.instance.specular = new BABYLON.Color3(item.specular.r, item.specular.g, item.specular.b);
                         break;
+                    case "freeCamera":
+                        item.instance = new BABYLON.FreeCamera(name, new BABYLON.Vector3(item.x, item.y, item.z), scene);
+                        item.instance.setTarget(new BABYLON.Vector3(item.target.x, item.target.y, item.target.z));
+                        break;
+
                 }
                 item.action = null;
                 break;
@@ -75,6 +80,12 @@ function applyActions(dom, scene) {
                     case "hemisphericLight":
                         item.instance.intensity = item.intensity;
                         break;
+                    case "freeCamera":
+                        item.instance.setTarget(new BABYLON.Vector3(item.target.x, item.target.y, item.target.z));
+                        item.instance.position.x = item.x;
+                        item.instance.position.y = item.y;
+                        item.instance.position.z = item.z;
+                        break;
                 }
                 break;
             case "delete":
@@ -92,6 +103,13 @@ window.addEventListener("load", (function() {
 
     var render = function (time) {
         var root = { children: [] };
+        root.children["camera1"] = {
+            type: 'freeCamera',
+            x: (Math.sin(time/40) * 10), 
+            y: 5, 
+            z: (Math.sin((time+20)/40) * 10),
+            target: {x:0, y:0, z:0}
+        };
         root.children["light1"] = {
             type: 'hemisphericLight',
             intensity: 0.7
@@ -99,7 +117,7 @@ window.addEventListener("load", (function() {
         root.children["light2"] = {
             type: 'pointLight',
             x: Math.abs(((time+80) % 120)/30 - 30), 
-            y:5, 
+            y: 5, 
             z:- 10,
             diffuse: {r:.5, g:0, b:0},
             specular: {r:1, g:0, b:0},
@@ -133,14 +151,9 @@ window.addEventListener("load", (function() {
         // This creates a basic Babylon Scene object (non-mesh)
         var scene = new BABYLON.Scene(engine);
 
-        // This creates and positions a free camera (non-mesh)
-        var camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(0, 5, -10), scene);
-
-        // This targets the camera to scene origin
-        camera.setTarget(BABYLON.Vector3.Zero());
-
+        // UNDONE: how to do this in the new model?
         // This attaches the camera to the canvas
-        camera.attachControl(canvas, true);
+        // camera.attachControl(canvas, true);
 
         lastDom = diff(lastDom, render(0));
         applyActions(lastDom, scene);

@@ -1,35 +1,38 @@
 function render(time) {
     var root = { children: [] };
+
+    var objectBaseY = 2;
+
     root.children["camera1"] = {
         type: 'freeCamera',
         x: (Math.sin(time/40) * 10), 
-        y: 5, 
+        y: objectBaseY+5, 
         z: (Math.sin((time+20)/40) * 10),
-        target: {x:0, y:0, z:0}
+        target: {x:0, y:objectBaseY, z:0}
     };
     root.children["light1"] = {
         type: 'directionalLight',
         x: 0, 
-        y: 10, 
+        y: objectBaseY+12, 
         z: 0,
         direction: {x:0, y:-1, z:.1},
         intensity: .7,
-        diffuse: {r:1, g:1, b:1},
+        diffuse: {r:.9, g:.9, b:1},
         specular: {r:1, g:1, b:1},
     };
 
     root.children["light2"] = {
         type: 'directionalLight',
         x: root.children["camera1"].x, 
-        y: root.children["camera1"].y, 
-        z: root.children["camera1"].y,
+        y: root.children["camera1"].y * 2, 
+        z: root.children["camera1"].z*1.2,
         direction: {
             x:-root.children["camera1"].x, 
             y:-root.children["camera1"].y, 
             z:-root.children["camera1"].z
         },
-        diffuse: {r:.5, g:0, b:0},
-        specular: {r:1, g:0, b:0},
+        diffuse: {r:.5, g:.5, b:.5},
+        specular: {r:1, g:1, b:1},
     };
 
     var size = .5;
@@ -50,7 +53,7 @@ function render(time) {
                     segments: 8,
                     size:size, 
                     x:offset*(x/4) + x*1.4*size, 
-                    y:offset/2 + y*1.4*size, 
+                    y:objectBaseY+offset/2 + y*1.4*size, 
                     z:z*1.4*size
                 };
             }
@@ -62,11 +65,16 @@ function render(time) {
         diffuseTexture: {type:'texture', url:'seamless_stone_texture.jpg'}
     };
 
+    root.children["groundMaterial"] = {
+        type: 'material',
+        diffuseTexture: {type:'texture', url:'ground.jpg', uScale:4, vScale:4, specularColor: {r:0, g:0, b:0}}
+    };
+
     root.children["box1"] = { 
         type: 'box', 
         size:1, 
         material: 'material1',
-        x: 0, y: 1.5, z: -4, 
+        x: 0, y: objectBaseY+1.5, z: -4, 
         scaling: {x:1,y:2, z:1} 
     };
 
@@ -74,11 +82,20 @@ function render(time) {
         type: 'box', 
         size:1, 
         material: 'material1',
-        x: 0, y: 6, z: 0, 
+        x: 0, y: objectBaseY+4, z: 0, 
         scaling: {x:4,y:.5, z:4} 
     };
 
-    root.children["ground1"] = { type: 'ground', width:12, depth:12, segments:8 };
+    root.children["ground1"] = { 
+        type: 'groundFromHeightMap', 
+        width:50, 
+        depth:50, 
+        minHeight: 0,
+        maxHeight: 3,
+        segments:8, 
+        url: "heightMap.png",
+        material:"groundMaterial" 
+    };
 
     sphereNames.push("box1");
     sphereNames.push("box2");
@@ -210,14 +227,42 @@ function render(time) {
                             item.instance.setTarget(new BABYLON.Vector3(item.target.x, item.target.y, item.target.z));
                             break;
                         case "ground":
-                            item.instance = BABYLON.Mesh.CreateGround("ground1", item.width, item.depth, item.segments, scene);
+                            item.instance = BABYLON.Mesh.CreateGround(name, item.width, item.depth, item.segments, scene);
                             item.instance.receiveShadows = true;
+                            if (item.material) {
+                                item.instance.material = result.children[item.material].instance;
+                            }
+                            break;
+                        case "groundFromHeightMap":
+                            item.instance = BABYLON.Mesh.CreateGroundFromHeightMap(name, 
+                                item.url, 
+                                item.width, 
+                                item.depth, 
+                                item.segments, 
+                                item.minHeight, 
+                                item.maxHeight,  
+                                scene, 
+                                false);
+                            item.instance.receiveShadows = true;
+                            if (item.material) {
+                                item.instance.material = result.children[item.material].instance;
+                            }
                             break;
                         case "material":
                             item.instance = new BABYLON.StandardMaterial(name, scene);
                             if (item.diffuseTexture) {
                                 if (item.diffuseTexture.type == "texture") {
                                     item.instance.diffuseTexture = new BABYLON.Texture(item.diffuseTexture.url, scene);
+                                    if (item.diffuseTexture.uScale) { item.instance.diffuseTexture.uScale = item.diffuseTexture.uScale }
+                                    if (item.diffuseTexture.vScale) { item.instance.diffuseTexture.vScale = item.diffuseTexture.vScale }
+                                    if (item.diffuseTexture.specularColor) { 
+                                        item.instance.diffuseTexture.specularColor = 
+                                            new BABYLON.Color3(
+                                                item.diffuseTexture.specularColor.r, 
+                                                item.diffuseTexture.specularColor.g, 
+                                                item.diffuseTexture.specularColor.b
+                                            ); 
+                                    }
                                 }
                             }
                             break;
@@ -229,6 +274,8 @@ function render(time) {
                 case "update":
                     // UNDONE: update material - need really diffing for that
                     // UNDONE: update shadow - need really diffing for that
+                    // UNDONE: update material
+                    // UNDONE: update groundFromHeightMap
                     //
                     item.action = null;
                     switch (item.type) {

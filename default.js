@@ -3,46 +3,64 @@ function render(time, model) {
 
     var objectBaseY = 1;
 
-    root.children["camera1"] = {
-        type: 'freeCamera',
-        x: (Math.sin(time/40) * 10), 
-        y: objectBaseY+5, 
-        z: (Math.sin((time+20)/40) * 10),
-        target: {x:0, y:objectBaseY, z:0}
-    };
-    root.children["light1"] = {
-        type: 'directionalLight',
-        x: 0, 
-        y: objectBaseY+12, 
-        z: 0,
-        direction: {x:0, y:-1, z:.1},
-        intensity: .7,
-        diffuse: {r:.9, g:.9, b:1},
-        specular: {r:1, g:1, b:1},
-    };
+    var cameraX = (Math.sin(time/40) * 10);
+    var cameraY = objectBaseY+5;
+    var cameraZ = (Math.sin((time+20)/40) * 10);
 
-    root.children["light2"] = {
-        type: 'directionalLight',
-        x: root.children["camera1"].x, 
-        y: root.children["camera1"].y * 2, 
-        z: root.children["camera1"].z*1.2,
-        direction: {
-            x:-root.children["camera1"].x, 
-            y:-root.children["camera1"].y, 
-            z:-root.children["camera1"].z
-        },
-        diffuse: {r:.5, g:.5, b:.5},
-        specular: {r:1, g:1, b:1},
-    };
-
-    root.children["material1"] = {
-        type: 'material',
-        diffuseTexture: {type:'texture', url:'seamless_stone_texture.jpg'}
-    };
-
-    root.children["groundMaterial"] = {
-        type: 'material',
-        diffuseTexture: {type:'texture', url:'ground.jpg', uScale:4, vScale:4, specularColor: {r:0, g:0, b:0}}
+    root = {
+        children: {
+            camera1: {
+                type: 'freeCamera',
+                x: cameraX, 
+                y: cameraY, 
+                z: cameraZ,
+                target: {x:0, y:objectBaseY, z:0}
+            },
+            light1 : {
+                type: 'directionalLight',
+                x: 0, 
+                y: objectBaseY+12, 
+                z: 0,
+                direction: {x:0, y:-1, z:.1},
+                intensity: .7,
+                diffuse: {r:.9, g:.9, b:1},
+                specular: {r:1, g:1, b:1},
+            },
+            light2 : {
+                type: 'directionalLight',
+                x: cameraX, 
+                y: cameraY * 2, 
+                z: cameraZ*1.2,
+                direction: {
+                    x:-cameraX, 
+                    y:-cameraY, 
+                    z:-cameraZ
+                },
+                diffuse: {r:.5, g:.5, b:.5},
+                specular: {r:1, g:1, b:1},
+            },
+            material1 : {
+                type: 'material',
+                diffuseTexture: {type:'texture', url:'seamless_stone_texture.jpg'}
+            },
+            groundMaterial : {
+                type: 'material',
+                diffuseTexture: {
+                    type:'texture', 
+                    url:'ground.jpg', 
+                    uScale:4, 
+                    vScale:4, 
+                    specularColor: {r:0, g:0, b:0}
+                }
+            },
+            ground1 : {
+                type: 'ground', 
+                width:50, 
+                depth:50, 
+                segments:8, 
+                material:"groundMaterial" 
+            }
+        }
     };
 
     var shadowNames = [];
@@ -59,14 +77,6 @@ function render(time, model) {
             material: "material1"
         };
     }
-
-    root.children["ground1"] = { 
-        type: 'ground', 
-        width:50, 
-        depth:50, 
-        segments:8, 
-        material:"groundMaterial" 
-    };
 
     root.children["shadow1"] = { 
         type: 'shadowGenerator',

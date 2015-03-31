@@ -8,48 +8,102 @@ function render(time) {
         target: {x:0, y:0, z:0}
     };
     root.children["light1"] = {
-        type: 'hemisphericLight',
-        intensity: 0.7
+        type: 'directionalLight',
+        x: 0, 
+        y: 10, 
+        z: 0,
+        direction: {x:0, y:-1, z:.1},
+        intensity: .7,
+        diffuse: {r:1, g:1, b:1},
+        specular: {r:1, g:1, b:1},
     };
+
     root.children["light2"] = {
-        type: 'pointLight',
-        x: Math.abs(((time+80) % 120)/30 - 30), 
-        y: 5, 
-        z:- 10,
+        type: 'directionalLight',
+        x: root.children["camera1"].x, 
+        y: root.children["camera1"].y, 
+        z: root.children["camera1"].y,
+        direction: {
+            x:-root.children["camera1"].x, 
+            y:-root.children["camera1"].y, 
+            z:-root.children["camera1"].z
+        },
         diffuse: {r:.5, g:0, b:0},
         specular: {r:1, g:0, b:0},
     };
 
-    var size = .35;
+    var size = .5;
     var slider = document.getElementById("size");
-    var zsize=6;
-    var ysize=6;
+    var zsize=4;
+    var ysize=4;
     var xsize=slider.value;
-    for (var z=-zsize/2; z<=zsize/2; z++) {
-        for (var y=1; y<=ysize; y++) {
+    var idx = 0;
+    var sphereNames = [];
+    for (var y=1; y<=ysize; y++) {
+        for (var z=-zsize/2; z<=zsize/2; z++) {
             for (var x=-xsize/2; x<=xsize/2; x++) {
-                var name = 'sphere('+x+','+y+','+z+')';
+                var name = 'sphere('+(idx++)+')';
+                sphereNames.push(name);
                 var offset = (Math.abs((time % 60) - 30)/15)-1;
                 root.children[name] = { 
                     type:'sphere', 
-                    segments: 12,
+                    segments: 8,
                     size:size, 
-                    x:offset + x*1.1*size, 
-                    y:y*1.1*size, 
-                    z:z*1.1*size
+                    x:offset*(x/4) + x*1.4*size, 
+                    y:offset/2 + y*1.4*size, 
+                    z:z*1.4*size
                 };
             }
         }
     }
 
+    root.children["material1"] = {
+        type: 'material',
+        diffuseTexture: {type:'texture', url:'seamless_stone_texture.jpg'}
+    };
+
+    root.children["box1"] = { 
+        type: 'box', 
+        size:1, 
+        material: 'material1',
+        x: 0, y: 1.5, z: -4, 
+        scaling: {x:1,y:2, z:1} 
+    };
+
+    root.children["box2"] = { 
+        type: 'box', 
+        size:1, 
+        material: 'material1',
+        x: 0, y: 6, z: 0, 
+        scaling: {x:4,y:.5, z:4} 
+    };
+
     root.children["ground1"] = { type: 'ground', width:12, depth:12, segments:8 };
+
+    sphereNames.push("box1");
+    sphereNames.push("box2");
+
+    root.children["shadow1"] = { 
+        type: 'shadowGenerator',
+        light: "light2", 
+        renderList: sphereNames
+    };
+
+    root.children["shadow2"] = { 
+        type: 'shadowGenerator',
+        light: "light1", 
+        renderList: sphereNames
+    };
+
     return root;
 };
 
 (function() {
+    var MAX_UPDATES = 20;
+
     function diff(master, newScene) {
         if (!master) {
-            var keys = Object.keys(newScene.children);
+                var keys = Object.keys(newScene.children);
             for (var i=0; i<keys.length; i++) {
                 newScene.children[keys[i]].action = "create";
             }
@@ -84,26 +138,72 @@ function render(time) {
         var keys = Object.keys(dom.children);
         var result = { children: {} };
 
+        var updateCount = 0;
+
         for (var i=0; i<keys.length; i++) {
             var name = keys[i];
             var item = dom.children[name];
+
+            // hack, hack, hack... 
+            //
+            if (updateCount > MAX_UPDATES) {
+                if (item.action == "update" || item.action == "delete") {
+                    result.children[name] = item;
+                }
+                continue;
+            }
+
             switch (item.action) {
                 case "create":
+                    updateCount++;
                     switch (item.type) {
+                        case "shadowGenerator":
+                            item.instance = new BABYLON.ShadowGenerator(1024, result.children[item.light].instance);
+                            item.instance.usePoissonSampling = true;
+                            var renderList = item.instance.getShadowMap().renderList;
+                            for (var i=0; i<item.renderList.length; i++) {
+                                renderList.push(result.children[item.renderList[i]].instance);
+                            }
+                            break;
                         case "sphere":
                             item.instance = BABYLON.Mesh.CreateSphere(name, item.segments || 16, item.size, scene);
                             item.instance.position.x = item.x;
                             item.instance.position.y = item.y;
                             item.instance.position.z = item.z;
+                            item.instance.receiveShadows = true;
+                            break;
+                        case "box":
+                            item.instance = BABYLON.Mesh.CreateBox(name, item.size, scene);
+                            if (item.scaling) {
+                                item.instance.scaling.x = item.scaling.x;
+                                item.instance.scaling.y = item.scaling.y;
+                                item.instance.scaling.z = item.scaling.z;
+                            }
+                            item.instance.position.x = item.x;
+                            item.instance.position.y = item.y;
+                            item.instance.position.z = item.z;
+                            if (item.material) {
+                                item.instance.material = result.children[item.material].instance;
+                            }
                             break;
                         case "hemisphericLight":
                             item.instance = new BABYLON.HemisphericLight(name, new BABYLON.Vector3(0, 1, 0), scene);
                             item.instance.intensity = item.intensity;
                             break;
+                        case "directionalLight":
+                            item.instance = new BABYLON.DirectionalLight(name, new BABYLON.Vector3(item.direction.x, item.direction.y, item.direction.z), scene);
+                            item.instance.intensity = item.intensity || 1;
+                            item.instance.position.x = item.x;
+                            item.instance.position.y = item.y;
+                            item.instance.position.z = item.z;
+                            item.instance.diffuse = new BABYLON.Color3(item.diffuse.r, item.diffuse.g, item.diffuse.b);
+                            item.instance.specular = new BABYLON.Color3(item.specular.r, item.specular.g, item.specular.b);
+                            break;
                         case "pointLight":
                             item.instance = new BABYLON.PointLight(name, new BABYLON.Vector3(item.x, item.y, item.z), scene);
                             item.instance.diffuse = new BABYLON.Color3(item.diffuse.r, item.diffuse.g, item.diffuse.b);
                             item.instance.specular = new BABYLON.Color3(item.specular.r, item.specular.g, item.specular.b);
+                            item.instance.intensity = item.intensity || 1;
                             break;
                         case "freeCamera":
                             item.instance = new BABYLON.FreeCamera(name, new BABYLON.Vector3(item.x, item.y, item.z), scene);
@@ -111,6 +211,15 @@ function render(time) {
                             break;
                         case "ground":
                             item.instance = BABYLON.Mesh.CreateGround("ground1", item.width, item.depth, item.segments, scene);
+                            item.instance.receiveShadows = true;
+                            break;
+                        case "material":
+                            item.instance = new BABYLON.StandardMaterial(name, scene);
+                            if (item.diffuseTexture) {
+                                if (item.diffuseTexture.type == "texture") {
+                                    item.instance.diffuseTexture = new BABYLON.Texture(item.diffuseTexture.url, scene);
+                                }
+                            }
                             break;
 
                     }
@@ -118,6 +227,9 @@ function render(time) {
                     result.children[name] = item;
                     break;
                 case "update":
+                    // UNDONE: update material - need really diffing for that
+                    // UNDONE: update shadow - need really diffing for that
+                    //
                     item.action = null;
                     switch (item.type) {
                         case "sphere":
@@ -125,7 +237,27 @@ function render(time) {
                             item.instance.position.y = item.y;
                             item.instance.position.z = item.z;
                             break;
+                        case "box":
+                            if (item.scaling) {
+                                item.instance.scaling.x = item.scaling.x;
+                                item.instance.scaling.y = item.scaling.y;
+                                item.instance.scaling.z = item.scaling.z;
+                            }
+                            item.instance.position.x = item.x;
+                            item.instance.position.y = item.y;
+                            item.instance.position.z = item.z;
+                            break;
                         case "pointLight":
+                            item.instance.intensity = item.intensity || 1;
+                            item.instance.diffuse = new BABYLON.Color3(item.diffuse.r, item.diffuse.g, item.diffuse.b);
+                            item.instance.specular = new BABYLON.Color3(item.specular.r, item.specular.g, item.specular.b);
+                            item.instance.position.x = item.x;
+                            item.instance.position.y = item.y;
+                            item.instance.position.z = item.z;
+                            break;
+                        case "directionalLight":
+                            item.instance.intensity = item.intensity || 1;
+                            item.instance.direction = new BABYLON.Vector3(item.direction.x, item.direction.y, item.direction.z)
                             item.instance.diffuse = new BABYLON.Color3(item.diffuse.r, item.diffuse.g, item.diffuse.b);
                             item.instance.specular = new BABYLON.Color3(item.specular.r, item.specular.g, item.specular.b);
                             item.instance.position.x = item.x;
@@ -148,6 +280,7 @@ function render(time) {
                     result.children[name] = item;
                     break;
                 case "delete":
+                    updateCount++;
                     item.instance.dispose();
                     break;    
             }
@@ -185,7 +318,7 @@ function render(time) {
             t++;
             lastDom = diff(lastDom, render(t));
             lastDom = applyActions(lastDom, scene);
-        }, 16);
+        }, 32);
 
         engine.runRenderLoop(function () {
           scene.render();

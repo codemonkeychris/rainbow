@@ -1,7 +1,7 @@
-function render(time) {
+function render(time, model) {
     var root = { children: [] };
 
-    var objectBaseY = 2;
+    var objectBaseY = 1;
 
     root.children["camera1"] = {
         type: 'freeCamera',
@@ -35,31 +35,6 @@ function render(time) {
         specular: {r:1, g:1, b:1},
     };
 
-    var size = .5;
-    var slider = document.getElementById("size");
-    var zsize=4;
-    var ysize=4;
-    var xsize=slider.value;
-    var idx = 0;
-    var sphereNames = [];
-    for (var y=1; y<=ysize; y++) {
-        for (var z=-zsize/2; z<=zsize/2; z++) {
-            for (var x=-xsize/2; x<=xsize/2; x++) {
-                var name = 'sphere('+(idx++)+')';
-                sphereNames.push(name);
-                var offset = (Math.abs((time % 60) - 30)/15)-1;
-                root.children[name] = { 
-                    type:'sphere', 
-                    segments: 8,
-                    size:size, 
-                    x:offset*(x/4) + x*1.4*size, 
-                    y:objectBaseY+offset/2 + y*1.4*size, 
-                    z:z*1.4*size
-                };
-            }
-        }
-    }
-
     root.children["material1"] = {
         type: 'material',
         diffuseTexture: {type:'texture', url:'seamless_stone_texture.jpg'}
@@ -70,46 +45,39 @@ function render(time) {
         diffuseTexture: {type:'texture', url:'ground.jpg', uScale:4, vScale:4, specularColor: {r:0, g:0, b:0}}
     };
 
-    root.children["box1"] = { 
-        type: 'box', 
-        size:1, 
-        material: 'material1',
-        x: 0, y: objectBaseY+1.5, z: -4, 
-        scaling: {x:1,y:2, z:1} 
-    };
-
-    root.children["box2"] = { 
-        type: 'box', 
-        size:1, 
-        material: 'material1',
-        x: 0, y: objectBaseY+4, z: 0, 
-        scaling: {x:4,y:.5, z:4} 
-    };
+    var shadowNames = [];
+    for (var i=0; i<=model.length; i++) {
+        var name = 'vis('+i+')';
+        shadowNames.push(name);
+        root.children[name] = { 
+            type:'box', 
+            x: i - model.length / 2,
+            y: 1 + (model[i] / 2),
+            z: 0,
+            size: 1,
+            scaling: { x:.8, y:model[i], z:.8 },
+            material: "material1"
+        };
+    }
 
     root.children["ground1"] = { 
-        type: 'groundFromHeightMap', 
+        type: 'ground', 
         width:50, 
         depth:50, 
-        minHeight: 0,
-        maxHeight: 3,
         segments:8, 
-        url: "heightMap.png",
         material:"groundMaterial" 
     };
-
-    sphereNames.push("box1");
-    sphereNames.push("box2");
 
     root.children["shadow1"] = { 
         type: 'shadowGenerator',
         light: "light2", 
-        renderList: sphereNames
+        renderList: shadowNames
     };
 
     root.children["shadow2"] = { 
         type: 'shadowGenerator',
         light: "light1", 
-        renderList: sphereNames
+        renderList: shadowNames
     };
 
     return root;
@@ -338,9 +306,14 @@ function render(time) {
 
     window.addEventListener("load", (function() {
         var canvas = document.getElementById("renderCanvas");
+        var modelInput = document.getElementById("modelInput");
+        var updateButton = document.getElementById("updateButton");
+
         var engine = new BABYLON.Engine(canvas, true);
 
         var lastDom = null;
+        var model = JSON.parse(modelInput.value);
+        updateButton.addEventListener("click", function() { model = JSON.parse(modelInput.value) });
 
         var createScene = function (t) {
 
@@ -351,7 +324,7 @@ function render(time) {
             // This attaches the camera to the canvas
             // camera.attachControl(canvas, true);
 
-            lastDom = diff(lastDom, render(0));
+            lastDom = diff(lastDom, render(0, model));
             lastDom = applyActions(lastDom, scene);
 
             return scene;
@@ -363,7 +336,7 @@ function render(time) {
 
         setInterval(function() {
             t++;
-            lastDom = diff(lastDom, render(t));
+            lastDom = diff(lastDom, render(t, model));
             lastDom = applyActions(lastDom, scene);
         }, 32);
 

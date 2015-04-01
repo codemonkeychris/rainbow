@@ -1,3 +1,10 @@
+
+// UNDONE: need to think about JSON objects vs. creation functions... 
+//
+
+/**
+ * Returns a two light system, one light at cameraPos, the other a top down ambient light
+ */
 function basicLights(cameraPos) {
     return {
         type: 'composite',
@@ -26,79 +33,83 @@ function basicLights(cameraPos) {
         }
     };
 }
+function diffuse(url, diffuseProps) { 
+    diffuseProps = diffuseProps || {};
+    diffuseProps.type = 'texture';
+    diffuseProps.url = url;
+    return { type: 'material', diffuseTexture: diffuseProps };
+}
+function shadowFor(lightName, renderList) { return { type: 'shadowGenerator', light: lightName, renderList: renderList }; }
+function flatGround(width, depth, material) { 
+    return {
+        type: 'ground', 
+        width:width, 
+        depth:depth, 
+        segments:8, 
+        material:material 
+    };
+}
+function groundFromHeightMap(width, depth, minHeight, maxHeight, heightMapUrl, material) {
+    return { 
+        type: 'groundFromHeightMap', 
+        width:width, 
+        depth:depth, 
+        minHeight: minHeight,
+        maxHeight: maxHeight,
+        segments:8, 
+        url: heightMapUrl,
+        material: material 
+    };
+}
+/**
+ * Returns a function which will seach the tree for any objects with a name matching
+ * pattern.
+ *
+ * @param {string} pattern The string pattern to search names for, for now it is a simple "indexOf" matching
+ *
+ * @return {function(o : any) => string[]} The circumference of the circle.
+ */
+ function select(pattern) {
+    return function(x) { return Object.keys(x).filter(function(i) { return i.indexOf(pattern) != -1 })};
+}
 
 function render(time, model) {
-    var root = { };
-
-    var objectBaseY = 1;
+    // UNDONE: "ig*" is ignored... design question - if this was an array, it would look 
+    // better but then the definition of "name/id" on other elements would be more ugly... 
+    //
 
     var cameraX = (Math.sin(time/40) * 10);
-    var cameraY = objectBaseY+5;
+    var cameraY = 5;
     var cameraZ = (Math.sin((time+20)/40) * 10);
 
-    root = {
+    return {
         camera1: {
             type: 'freeCamera',
             x: cameraX, 
             y: cameraY, 
             z: cameraZ,
-            target: {x:0, y:objectBaseY, z:0}
+            target: {x:0, y:3, z:0}
         },
-        // UNDONE: "ig" is ignored... design question - if this was an array, it would look 
-        // better but then the definition of "name/id" on other elements would be more ugly... 
-        //
         ig: basicLights({x: cameraX, y: cameraY, z: cameraZ}),
-        material1 : {
-            type: 'material',
-            diffuseTexture: {type:'texture', url:'seamless_stone_texture.jpg'}
-        },
-        groundMaterial : {
-            type: 'material',
-            diffuseTexture: {
-                type:'texture', 
-                url:'ground.jpg', 
-                uScale:4, 
-                vScale:4, 
-                specularColor: {r:0, g:0, b:0}
-            }
-        },
-        ground1 : {
-            type: 'ground', 
-            width:50, 
-            depth:50, 
-            segments:8, 
-            material:"groundMaterial" 
-        }
+        material1 : diffuse('seamless_stone_texture.jpg'),
+        groundMaterial : diffuse('ground.jpg', { uScale:4, vScale:4, specularColor: {r:0, g:0, b:0} }),
+        ground1 : groundFromHeightMap(50, 50, 0, 3, "heightMap.png", "groundMaterial"),
+        ig2: model.reduce(function (prev, current, index, arr) {
+            var name = 'vis('+index+')';
+            prev[name] = { 
+                type:'box', 
+                x: index - arr.length / 2,
+                y: 3 + (current / 4),
+                z: 0,
+                size: 1,
+                scaling: { x:.8, y:current/2, z:.8 },
+                material: "material1"
+            };
+            return prev;
+        }, { type: 'composite' }),
+        shadow1 : shadowFor('light2', select("vis(")),
+        shadow2 : shadowFor('light1', select("vis("))
     };
-
-    var shadowNames = [];
-    for (var i=0; i<=model.length; i++) {
-        var name = 'vis('+i+')';
-        shadowNames.push(name);
-        root[name] = { 
-            type:'box', 
-            x: i - model.length / 2,
-            y: 1 + (model[i] / 2),
-            z: 0,
-            size: 1,
-            scaling: { x:.8, y:model[i], z:.8 },
-            material: "material1"
-        };
-    }
-
-    root["shadow1"] = { 
-        type: 'shadowGenerator',
-        light: "light2", 
-        renderList: shadowNames
-    };
-
-    root["shadow2"] = { 
-        type: 'shadowGenerator',
-        light: "light1", 
-        renderList: shadowNames
-    };
-
-    return root;
 };
 
 (function() {
@@ -125,8 +136,27 @@ function render(time, model) {
         return result;
     }
 
+    function resolveFunctions(scene) {
+        var result = {};
+        var keys = Object.keys(scene);
+        for (var i=0; i<keys.length; i++) {
+            var name = keys[i];
+            var value = scene[name];
+            if (value) {
+                var childKeys = Object.keys(value);
+                for (var i2=0; i2<childKeys.length; i2++) {
+                    if (value[childKeys[i2]] instanceof Function) {
+                        value[childKeys[i2]] = value[childKeys[i2]](scene);
+                    }
+                }
+            }
+            result[name] = value;
+        }
+        return result;
+    }
+
     function diff(master, newScene) {
-        newScene = flatten(newScene);
+        newScene = resolveFunctions(flatten(newScene));
         if (!master) {
             var keys = Object.keys(newScene);
             for (var i=0; i<keys.length; i++) {

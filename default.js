@@ -1,4 +1,3 @@
-
 // UNDONE: need to think about JSON objects vs. creation functions... 
 //
 
@@ -16,7 +15,7 @@ function basicLights(cameraPos) {
             direction: {x:0, y:-1, z:.1},
             intensity: .7,
             diffuse: {r:.9, g:.9, b:1},
-            specular: {r:1, g:1, b:1},
+            specular: {r:1, g:1, b:1}
         },
         light2 : {
             type: 'directionalLight',
@@ -29,7 +28,7 @@ function basicLights(cameraPos) {
                 z:-cameraPos.z
             },
             diffuse: {r:.5, g:.5, b:.5},
-            specular: {r:1, g:1, b:1},
+            specular: {r:1, g:1, b:1}
         }
     };
 }
@@ -73,7 +72,7 @@ function groundFromHeightMap(width, depth, minHeight, maxHeight, heightMapUrl, m
     return function(x) { return Object.keys(x).filter(function(i) { return i.indexOf(pattern) != -1 })};
 }
 
-function render(time, model) {
+function render2(time, model) {
     // UNDONE: "ig*" is ignored... design question - if this was an array, it would look 
     // better but then the definition of "name/id" on other elements would be more ugly... 
     //
@@ -111,10 +110,46 @@ function render(time, model) {
         shadow2 : shadowFor('light1', select("vis("))
     };
 };
+function render() {
+    return {
+        camera1: {
+            type: 'freeCamera',
+            x: 5, 
+            y: 5, 
+            z: -10,
+            target: {x:0, y:0, z:0}
+        },
+        light1 : {
+            type: 'directionalLight',
+            x: 5, 
+            y: 5, 
+            z: -10,
+            direction: {x:-1, y:-1, z:10},
+            intensity: .7,
+            diffuse: {r:.9, g:.9, b:1},
+            specular: {r:1, g:1, b:1},
+        },
+        sphere1: {
+            type: 'sphere',
+            x: 0,
+            y: 0,
+            z: 0,
+            size: 3
+        }
+    };
+};
 
 (function() {
+    // creation of new meshes can be expensive, to avoid hanging the UI thread, I limit
+    // the number of expensive operations per frame. The rest will be picked up on the 
+    // next frame
+    //
     var MAX_UPDATES = 20;
 
+    // JS records don't compose well in functional contexts, you can't merged function records easily (a+b), 
+    // so I opt'd for a simple {type:'composite'} which will be flattened before processing and completely
+    // erased.
+    //
     function flatten(scene) {
         var result = {};
         var keys = Object.keys(scene);
@@ -136,6 +171,9 @@ function render(time, model) {
         return result;
     }
 
+    // functions in the graph allow for lazy evaluation and graph queries, the common
+    // one I hit was the desire to get a list of all XXX elements to create shadows
+    //
     function resolveFunctions(scene) {
         var result = {};
         var keys = Object.keys(scene);
@@ -155,6 +193,10 @@ function render(time, model) {
         return result;
     }
 
+    // Incredibly niave implementation of DIFF... really this should just be replaced
+    // by React, i need to see how hard that would be with my own custom OM as the
+    // backend/DOM
+    //
     function diff(master, newScene) {
         newScene = resolveFunctions(flatten(newScene));
         if (!master) {
@@ -189,6 +231,10 @@ function render(time, model) {
             return master;
         }
     };
+
+    // Poorly factored and horribly inneficient. This started as 20 lines, and kept growing. 
+    // Desparately needs refactoring and some design work
+    //
     function applyActions(dom, scene) {
         var keys = Object.keys(dom);
         var result = { };
@@ -374,20 +420,20 @@ function render(time, model) {
         return result;
     };
 
+    // Simplistic startup, need to think about the app bootstrap and actual app model.
+    // Lots of questions - for example should we embrace React for the HTML UI and just go all in?
+    //
     window.addEventListener("load", (function() {
         var canvas = document.getElementById("renderCanvas");
         var modelInput = document.getElementById("modelInput");
         var updateButton = document.getElementById("updateButton");
 
         var engine = new BABYLON.Engine(canvas, true);
-
         var lastDom = null;
         var model = JSON.parse(modelInput.value);
         updateButton.addEventListener("click", function() { model = JSON.parse(modelInput.value) });
 
         var createScene = function (t) {
-
-            // This creates a basic Babylon Scene object (non-mesh)
             var scene = new BABYLON.Scene(engine);
 
             // UNDONE: how to do this in the new model?
@@ -396,9 +442,7 @@ function render(time, model) {
 
             lastDom = diff(lastDom, render(0, model));
             lastDom = applyActions(lastDom, scene);
-
             return scene;
-
         };
 
         var scene = createScene();
@@ -414,7 +458,6 @@ function render(time, model) {
           scene.render();
         });
 
-        // Resize
         window.addEventListener("resize", function () {
           engine.resize();
         });

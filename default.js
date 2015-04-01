@@ -1,5 +1,34 @@
+function basicLights(cameraPos) {
+    return {
+        type: 'composite',
+        light1 : {
+            type: 'directionalLight',
+            x: 0, 
+            y: 13, 
+            z: 0,
+            direction: {x:0, y:-1, z:.1},
+            intensity: .7,
+            diffuse: {r:.9, g:.9, b:1},
+            specular: {r:1, g:1, b:1},
+        },
+        light2 : {
+            type: 'directionalLight',
+            x: cameraPos.x, 
+            y: cameraPos.y * 2, 
+            z: cameraPos.z*1.2,
+            direction: {
+                x:-cameraPos.x, 
+                y:-cameraPos.y, 
+                z:-cameraPos.z
+            },
+            diffuse: {r:.5, g:.5, b:.5},
+            specular: {r:1, g:1, b:1},
+        }
+    };
+}
+
 function render(time, model) {
-    var root = { children: [] };
+    var root = { };
 
     var objectBaseY = 1;
 
@@ -8,58 +37,37 @@ function render(time, model) {
     var cameraZ = (Math.sin((time+20)/40) * 10);
 
     root = {
-        children: {
-            camera1: {
-                type: 'freeCamera',
-                x: cameraX, 
-                y: cameraY, 
-                z: cameraZ,
-                target: {x:0, y:objectBaseY, z:0}
-            },
-            light1 : {
-                type: 'directionalLight',
-                x: 0, 
-                y: objectBaseY+12, 
-                z: 0,
-                direction: {x:0, y:-1, z:.1},
-                intensity: .7,
-                diffuse: {r:.9, g:.9, b:1},
-                specular: {r:1, g:1, b:1},
-            },
-            light2 : {
-                type: 'directionalLight',
-                x: cameraX, 
-                y: cameraY * 2, 
-                z: cameraZ*1.2,
-                direction: {
-                    x:-cameraX, 
-                    y:-cameraY, 
-                    z:-cameraZ
-                },
-                diffuse: {r:.5, g:.5, b:.5},
-                specular: {r:1, g:1, b:1},
-            },
-            material1 : {
-                type: 'material',
-                diffuseTexture: {type:'texture', url:'seamless_stone_texture.jpg'}
-            },
-            groundMaterial : {
-                type: 'material',
-                diffuseTexture: {
-                    type:'texture', 
-                    url:'ground.jpg', 
-                    uScale:4, 
-                    vScale:4, 
-                    specularColor: {r:0, g:0, b:0}
-                }
-            },
-            ground1 : {
-                type: 'ground', 
-                width:50, 
-                depth:50, 
-                segments:8, 
-                material:"groundMaterial" 
+        camera1: {
+            type: 'freeCamera',
+            x: cameraX, 
+            y: cameraY, 
+            z: cameraZ,
+            target: {x:0, y:objectBaseY, z:0}
+        },
+        // UNDONE: "ig" is ignored... design question - if this was an array, it would look 
+        // better but then the definition of "name/id" on other elements would be more ugly... 
+        //
+        ig: basicLights({x: cameraX, y: cameraY, z: cameraZ}),
+        material1 : {
+            type: 'material',
+            diffuseTexture: {type:'texture', url:'seamless_stone_texture.jpg'}
+        },
+        groundMaterial : {
+            type: 'material',
+            diffuseTexture: {
+                type:'texture', 
+                url:'ground.jpg', 
+                uScale:4, 
+                vScale:4, 
+                specularColor: {r:0, g:0, b:0}
             }
+        },
+        ground1 : {
+            type: 'ground', 
+            width:50, 
+            depth:50, 
+            segments:8, 
+            material:"groundMaterial" 
         }
     };
 
@@ -67,7 +75,7 @@ function render(time, model) {
     for (var i=0; i<=model.length; i++) {
         var name = 'vis('+i+')';
         shadowNames.push(name);
-        root.children[name] = { 
+        root[name] = { 
             type:'box', 
             x: i - model.length / 2,
             y: 1 + (model[i] / 2),
@@ -78,13 +86,13 @@ function render(time, model) {
         };
     }
 
-    root.children["shadow1"] = { 
+    root["shadow1"] = { 
         type: 'shadowGenerator',
         light: "light2", 
         renderList: shadowNames
     };
 
-    root.children["shadow2"] = { 
+    root["shadow2"] = { 
         type: 'shadowGenerator',
         light: "light1", 
         renderList: shadowNames
@@ -96,54 +104,76 @@ function render(time, model) {
 (function() {
     var MAX_UPDATES = 20;
 
+    function flatten(scene) {
+        var result = {};
+        var keys = Object.keys(scene);
+        for (var i=0; i<keys.length; i++) {
+            var name = keys[i];
+            var value = scene[name];
+            if (scene[name].type == 'composite') {
+                var compKeys = Object.keys(value);
+                for (var i2=0; i2<compKeys.length; i2++) {
+                    if (compKeys[i2] != 'type') {
+                        result[compKeys[i2]] = value[compKeys[i2]];
+                    }
+                }
+            }
+            else {
+                result[name] = scene[name];
+            }
+        }
+        return result;
+    }
+
     function diff(master, newScene) {
+        newScene = flatten(newScene);
         if (!master) {
-                var keys = Object.keys(newScene.children);
+            var keys = Object.keys(newScene);
             for (var i=0; i<keys.length; i++) {
-                newScene.children[keys[i]].action = "create";
+                newScene[keys[i]].action = "create";
             }
             return newScene;
         }
         else {
-            var keys = Object.keys(master.children);
+            var keys = Object.keys(master);
             for (var i=0; i<keys.length; i++) {
                 var name = keys[i];
-                if (!newScene.children[name]) {
-                    master.children[name].action = "delete";
+                if (!newScene[name]) {
+                    master[name].action = "delete";
                 }
                 else {
-                    newScene.children[name].instance = master.children[name].instance;
-                    master.children[name] = newScene.children[name];
-                    master.children[name].action = "update";
-                    newScene.children[name] = null;
+                    newScene[name].instance = master[name].instance;
+                    master[name] = newScene[name];
+                    master[name].action = "update";
+                    newScene[name] = null;
                 }
             }
-            var keys = Object.keys(newScene.children);
+            var keys = Object.keys(newScene);
             for (var i=0; i<keys.length; i++) {
                 var name = keys[i];
-                if (newScene.children[name]) {
-                    newScene.children[name].action = "create";
-                    master.children[name] = newScene.children[name];
+                if (newScene[name]) {
+                    newScene[name].action = "create";
+                    master[name] = newScene[name];
                 }
             }
             return master;
         }
     };
     function applyActions(dom, scene) {
-        var keys = Object.keys(dom.children);
-        var result = { children: {} };
+        var keys = Object.keys(dom);
+        var result = { };
 
         var updateCount = 0;
 
         for (var i=0; i<keys.length; i++) {
             var name = keys[i];
-            var item = dom.children[name];
+            var item = dom[name];
 
             // hack, hack, hack... 
             //
             if (updateCount > MAX_UPDATES) {
                 if (item.action == "update" || item.action == "delete") {
-                    result.children[name] = item;
+                    result[name] = item;
                 }
                 continue;
             }
@@ -153,11 +183,11 @@ function render(time, model) {
                     updateCount++;
                     switch (item.type) {
                         case "shadowGenerator":
-                            item.instance = new BABYLON.ShadowGenerator(1024, result.children[item.light].instance);
+                            item.instance = new BABYLON.ShadowGenerator(1024, result[item.light].instance);
                             item.instance.usePoissonSampling = true;
                             var renderList = item.instance.getShadowMap().renderList;
                             for (var i=0; i<item.renderList.length; i++) {
-                                renderList.push(result.children[item.renderList[i]].instance);
+                                renderList.push(result[item.renderList[i]].instance);
                             }
                             break;
                         case "sphere":
@@ -178,7 +208,7 @@ function render(time, model) {
                             item.instance.position.y = item.y;
                             item.instance.position.z = item.z;
                             if (item.material) {
-                                item.instance.material = result.children[item.material].instance;
+                                item.instance.material = result[item.material].instance;
                             }
                             break;
                         case "hemisphericLight":
@@ -208,7 +238,7 @@ function render(time, model) {
                             item.instance = BABYLON.Mesh.CreateGround(name, item.width, item.depth, item.segments, scene);
                             item.instance.receiveShadows = true;
                             if (item.material) {
-                                item.instance.material = result.children[item.material].instance;
+                                item.instance.material = result[item.material].instance;
                             }
                             break;
                         case "groundFromHeightMap":
@@ -223,7 +253,7 @@ function render(time, model) {
                                 false);
                             item.instance.receiveShadows = true;
                             if (item.material) {
-                                item.instance.material = result.children[item.material].instance;
+                                item.instance.material = result[item.material].instance;
                             }
                             break;
                         case "material":
@@ -247,7 +277,7 @@ function render(time, model) {
 
                     }
                     item.action = null;
-                    result.children[name] = item;
+                    result[name] = item;
                     break;
                 case "update":
                     // UNDONE: update material - need really diffing for that
@@ -302,7 +332,7 @@ function render(time, model) {
                             // UNDONE: update ground
                             break;
                     }
-                    result.children[name] = item;
+                    result[name] = item;
                     break;
                 case "delete":
                     updateCount++;

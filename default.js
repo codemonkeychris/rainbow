@@ -3,7 +3,7 @@
 
 /**
  * Returns a two light system, one light at cameraPos, the other a top down ambient light
- */
+*/
 function basicLights(cameraPos) {
     return {
         type: 'composite',
@@ -72,7 +72,7 @@ function groundFromHeightMap(width, depth, minHeight, maxHeight, heightMapUrl, m
     return function(x) { return Object.keys(x).filter(function(i) { return i.indexOf(pattern) != -1 })};
 }
 
-function render2(time, model) {
+function render(time, model) {
     // UNDONE: "ig*" is ignored... design question - if this was an array, it would look 
     // better but then the definition of "name/id" on other elements would be more ugly... 
     //
@@ -108,34 +108,6 @@ function render2(time, model) {
         }, { type: 'composite' }),
         shadow1 : shadowFor('light2', select("vis(")),
         shadow2 : shadowFor('light1', select("vis("))
-    };
-};
-function render() {
-    return {
-        camera1: {
-            type: 'freeCamera',
-            x: 5, 
-            y: 5, 
-            z: -10,
-            target: {x:0, y:0, z:0}
-        },
-        light1 : {
-            type: 'directionalLight',
-            x: 5, 
-            y: 5, 
-            z: -10,
-            direction: {x:-1, y:-1, z:10},
-            intensity: .7,
-            diffuse: {r:.9, g:.9, b:1},
-            specular: {r:1, g:1, b:1},
-        },
-        sphere1: {
-            type: 'sphere',
-            x: 0,
-            y: 0,
-            z: 0,
-            size: 3
-        }
     };
 };
 

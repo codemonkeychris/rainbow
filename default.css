@@ -11,3 +11,23 @@ html, body {
   height: 100%;
   touch-action: none;
 }
+
+#mainSection {
+	display: flex;
+}
+
+#domOutput .string { color: green; }
+#domOutput .number { color: darkorange; }
+#domOutput .boolean { color: blue; }
+#domOutput .null { color: magenta; }
+#domOutput .key { color: red; }
+
+#domOutput {
+	white-space: pre;
+	width:350px;
+	height:700px;
+	overflow-x: auto;
+	overflow-y: auto;
+	font-family: Consolas;
+	font-size: 9pt;
+}

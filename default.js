@@ -170,6 +170,7 @@ function render(time, model) {
     // backend/DOM
     //
     function diff(master, newScene) {
+
         newScene = resolveFunctions(flatten(newScene));
         if (!master) {
             var keys = Object.keys(newScene);
@@ -179,35 +180,36 @@ function render(time, model) {
             return newScene;
         }
         else {
-            var keys = Object.keys(master);
-            for (var i=0; i<keys.length; i++) {
-                var name = keys[i];
-                if (!newScene[name]) {
-                    master[name].action = "delete";
-                }
-                else {
-                    newScene[name].instance = master[name].instance;
-                    master[name] = newScene[name];
-                    master[name].action = "update";
-                    newScene[name] = null;
-                }
-            }
+            var result = {};
+
+            var masterKeys = Object.keys(master);
             var keys = Object.keys(newScene);
             for (var i=0; i<keys.length; i++) {
                 var name = keys[i];
-                if (newScene[name]) {
-                    newScene[name].action = "create";
-                    master[name] = newScene[name];
+                if (!master[name]) {
+                    result[name] = newScene[name];
+                    result[name].action = "create";
+                }
+                else {
+                    result[name] = newScene[name];
+                    result[name].action = "update";
                 }
             }
-            return master;
+            for (var i=0; i<masterKeys.length; i++) {
+                var name = masterKeys[i];
+                if (!newScene[name]) {
+                    result[name] = master[name];
+                    result[name].action = "delete";
+                }
+            }
+            return result;
         }
     };
 
     // Poorly factored and horribly inneficient. This started as 20 lines, and kept growing. 
     // Desparately needs refactoring and some design work
     //
-    function applyActions(dom, scene) {
+    function applyActions(dom, scene, realObjects) {
         var keys = Object.keys(dom);
         var result = { };
 
@@ -231,66 +233,66 @@ function render(time, model) {
                     updateCount++;
                     switch (item.type) {
                         case "shadowGenerator":
-                            item.instance = new BABYLON.ShadowGenerator(1024, result[item.light].instance);
-                            item.instance.usePoissonSampling = true;
-                            var renderList = item.instance.getShadowMap().renderList;
+                            realObjects[name] = new BABYLON.ShadowGenerator(1024, realObjects[item.light])
+                            realObjects[name].usePoissonSampling = true;
+                            var renderList = realObjects[name].getShadowMap().renderList;
                             for (var i=0; i<item.renderList.length; i++) {
-                                renderList.push(result[item.renderList[i]].instance);
+                                renderList.push(realObjects[item.renderList[i]]);
                             }
                             break;
                         case "sphere":
-                            item.instance = BABYLON.Mesh.CreateSphere(name, item.segments || 16, item.size, scene);
-                            item.instance.position.x = item.x;
-                            item.instance.position.y = item.y;
-                            item.instance.position.z = item.z;
-                            item.instance.receiveShadows = true;
+                            realObjects[name] = BABYLON.Mesh.CreateSphere(name, item.segments || 16, item.size, scene);
+                            realObjects[name].position.x = item.x;
+                            realObjects[name].position.y = item.y;
+                            realObjects[name].position.z = item.z;
+                            realObjects[name].receiveShadows = true;
                             break;
                         case "box":
-                            item.instance = BABYLON.Mesh.CreateBox(name, item.size, scene);
+                            realObjects[name] = BABYLON.Mesh.CreateBox(name, item.size, scene);
                             if (item.scaling) {
-                                item.instance.scaling.x = item.scaling.x;
-                                item.instance.scaling.y = item.scaling.y;
-                                item.instance.scaling.z = item.scaling.z;
+                                realObjects[name].scaling.x = item.scaling.x;
+                                realObjects[name].scaling.y = item.scaling.y;
+                                realObjects[name].scaling.z = item.scaling.z;
                             }
-                            item.instance.position.x = item.x;
-                            item.instance.position.y = item.y;
-                            item.instance.position.z = item.z;
+                            realObjects[name].position.x = item.x;
+                            realObjects[name].position.y = item.y;
+                            realObjects[name].position.z = item.z;
                             if (item.material) {
-                                item.instance.material = result[item.material].instance;
+                                realObjects[name].material = realObjects[item.material];
                             }
                             break;
                         case "hemisphericLight":
-                            item.instance = new BABYLON.HemisphericLight(name, new BABYLON.Vector3(0, 1, 0), scene);
-                            item.instance.intensity = item.intensity;
+                            realObjects[name] = new BABYLON.HemisphericLight(name, new BABYLON.Vector3(0, 1, 0), scene);
+                            realObjects[name].intensity = item.intensity;
                             break;
                         case "directionalLight":
-                            item.instance = new BABYLON.DirectionalLight(name, new BABYLON.Vector3(item.direction.x, item.direction.y, item.direction.z), scene);
-                            item.instance.intensity = item.intensity || 1;
-                            item.instance.position.x = item.x;
-                            item.instance.position.y = item.y;
-                            item.instance.position.z = item.z;
-                            item.instance.diffuse = new BABYLON.Color3(item.diffuse.r, item.diffuse.g, item.diffuse.b);
-                            item.instance.specular = new BABYLON.Color3(item.specular.r, item.specular.g, item.specular.b);
+                            realObjects[name] = new BABYLON.DirectionalLight(name, new BABYLON.Vector3(item.direction.x, item.direction.y, item.direction.z), scene);
+                            realObjects[name].intensity = item.intensity || 1;
+                            realObjects[name].position.x = item.x;
+                            realObjects[name].position.y = item.y;
+                            realObjects[name].position.z = item.z;
+                            realObjects[name].diffuse = new BABYLON.Color3(item.diffuse.r, item.diffuse.g, item.diffuse.b);
+                            realObjects[name].specular = new BABYLON.Color3(item.specular.r, item.specular.g, item.specular.b);
                             break;
                         case "pointLight":
-                            item.instance = new BABYLON.PointLight(name, new BABYLON.Vector3(item.x, item.y, item.z), scene);
-                            item.instance.diffuse = new BABYLON.Color3(item.diffuse.r, item.diffuse.g, item.diffuse.b);
-                            item.instance.specular = new BABYLON.Color3(item.specular.r, item.specular.g, item.specular.b);
-                            item.instance.intensity = item.intensity || 1;
+                            realObjects[name] = new BABYLON.PointLight(name, new BABYLON.Vector3(item.x, item.y, item.z), scene);
+                            realObjects[name].diffuse = new BABYLON.Color3(item.diffuse.r, item.diffuse.g, item.diffuse.b);
+                            realObjects[name].specular = new BABYLON.Color3(item.specular.r, item.specular.g, item.specular.b);
+                            realObjects[name].intensity = item.intensity || 1;
                             break;
                         case "freeCamera":
-                            item.instance = new BABYLON.FreeCamera(name, new BABYLON.Vector3(item.x, item.y, item.z), scene);
-                            item.instance.setTarget(new BABYLON.Vector3(item.target.x, item.target.y, item.target.z));
+                            realObjects[name] = new BABYLON.FreeCamera(name, new BABYLON.Vector3(item.x, item.y, item.z), scene);
+                            realObjects[name].setTarget(new BABYLON.Vector3(item.target.x, item.target.y, item.target.z));
                             break;
                         case "ground":
-                            item.instance = BABYLON.Mesh.CreateGround(name, item.width, item.depth, item.segments, scene);
-                            item.instance.receiveShadows = true;
+                            realObjects[name] = BABYLON.Mesh.CreateGround(name, item.width, item.depth, item.segments, scene);
+                            realObjects[name].receiveShadows = true;
                             if (item.material) {
-                                item.instance.material = result[item.material].instance;
+                                realObjects[name].material = realObjects[item.material];
                             }
                             break;
                         case "groundFromHeightMap":
-                            item.instance = BABYLON.Mesh.CreateGroundFromHeightMap(name, 
+                            realObjects[name] = BABYLON.Mesh.CreateGroundFromHeightMap(name, 
                                 item.url, 
                                 item.width, 
                                 item.depth, 
@@ -299,20 +301,20 @@ function render(time, model) {
                                 item.maxHeight,  
                                 scene, 
                                 false);
-                            item.instance.receiveShadows = true;
+                            realObjects[name].receiveShadows = true;
                             if (item.material) {
-                                item.instance.material = result[item.material].instance;
+                                realObjects[name].material = realObjects[item.material];
                             }
                             break;
                         case "material":
-                            item.instance = new BABYLON.StandardMaterial(name, scene);
+                            realObjects[name] = new BABYLON.StandardMaterial(name, scene);
                             if (item.diffuseTexture) {
                                 if (item.diffuseTexture.type == "texture") {
-                                    item.instance.diffuseTexture = new BABYLON.Texture(item.diffuseTexture.url, scene);
-                                    if (item.diffuseTexture.uScale) { item.instance.diffuseTexture.uScale = item.diffuseTexture.uScale }
-                                    if (item.diffuseTexture.vScale) { item.instance.diffuseTexture.vScale = item.diffuseTexture.vScale }
+                                    realObjects[name].diffuseTexture = new BABYLON.Texture(item.diffuseTexture.url, scene);
+                                    if (item.diffuseTexture.uScale) { realObjects[name].diffuseTexture.uScale = item.diffuseTexture.uScale }
+                                    if (item.diffuseTexture.vScale) { realObjects[name].diffuseTexture.vScale = item.diffuseTexture.vScale }
                                     if (item.diffuseTexture.specularColor) { 
-                                        item.instance.diffuseTexture.specularColor = 
+                                        realObjects[name].diffuseTexture.specularColor = 
                                             new BABYLON.Color3(
                                                 item.diffuseTexture.specularColor.r, 
                                                 item.diffuseTexture.specularColor.g, 
@@ -324,7 +326,7 @@ function render(time, model) {
                             break;
 
                     }
-                    item.action = null;
+                    delete item.action;
                     result[name] = item;
                     break;
                 case "update":
@@ -333,48 +335,48 @@ function render(time, model) {
                     // UNDONE: update material
                     // UNDONE: update groundFromHeightMap
                     //
-                    item.action = null;
+                    delete item.action;
                     switch (item.type) {
                         case "sphere":
-                            item.instance.position.x = item.x;
-                            item.instance.position.y = item.y;
-                            item.instance.position.z = item.z;
+                            realObjects[name].position.x = item.x;
+                            realObjects[name].position.y = item.y;
+                            realObjects[name].position.z = item.z;
                             break;
                         case "box":
                             if (item.scaling) {
-                                item.instance.scaling.x = item.scaling.x;
-                                item.instance.scaling.y = item.scaling.y;
-                                item.instance.scaling.z = item.scaling.z;
+                                realObjects[name].scaling.x = item.scaling.x;
+                                realObjects[name].scaling.y = item.scaling.y;
+                                realObjects[name].scaling.z = item.scaling.z;
                             }
-                            item.instance.position.x = item.x;
-                            item.instance.position.y = item.y;
-                            item.instance.position.z = item.z;
+                            realObjects[name].position.x = item.x;
+                            realObjects[name].position.y = item.y;
+                            realObjects[name].position.z = item.z;
                             break;
                         case "pointLight":
-                            item.instance.intensity = item.intensity || 1;
-                            item.instance.diffuse = new BABYLON.Color3(item.diffuse.r, item.diffuse.g, item.diffuse.b);
-                            item.instance.specular = new BABYLON.Color3(item.specular.r, item.specular.g, item.specular.b);
-                            item.instance.position.x = item.x;
-                            item.instance.position.y = item.y;
-                            item.instance.position.z = item.z;
+                            realObjects[name].intensity = item.intensity || 1;
+                            realObjects[name].diffuse = new BABYLON.Color3(item.diffuse.r, item.diffuse.g, item.diffuse.b);
+                            realObjects[name].specular = new BABYLON.Color3(item.specular.r, item.specular.g, item.specular.b);
+                            realObjects[name].position.x = item.x;
+                            realObjects[name].position.y = item.y;
+                            realObjects[name].position.z = item.z;
                             break;
                         case "directionalLight":
-                            item.instance.intensity = item.intensity || 1;
-                            item.instance.direction = new BABYLON.Vector3(item.direction.x, item.direction.y, item.direction.z)
-                            item.instance.diffuse = new BABYLON.Color3(item.diffuse.r, item.diffuse.g, item.diffuse.b);
-                            item.instance.specular = new BABYLON.Color3(item.specular.r, item.specular.g, item.specular.b);
-                            item.instance.position.x = item.x;
-                            item.instance.position.y = item.y;
-                            item.instance.position.z = item.z;
+                            realObjects[name].intensity = item.intensity || 1;
+                            realObjects[name].direction = new BABYLON.Vector3(item.direction.x, item.direction.y, item.direction.z)
+                            realObjects[name].diffuse = new BABYLON.Color3(item.diffuse.r, item.diffuse.g, item.diffuse.b);
+                            realObjects[name].specular = new BABYLON.Color3(item.specular.r, item.specular.g, item.specular.b);
+                            realObjects[name].position.x = item.x;
+                            realObjects[name].position.y = item.y;
+                            realObjects[name].position.z = item.z;
                             break;
                         case "hemisphericLight":
-                            item.instance.intensity = item.intensity;
+                            realObjects[name].intensity = item.intensity;
                             break;
                         case "freeCamera":
-                            item.instance.setTarget(new BABYLON.Vector3(item.target.x, item.target.y, item.target.z));
-                            item.instance.position.x = item.x;
-                            item.instance.position.y = item.y;
-                            item.instance.position.z = item.z;
+                            realObjects[name].setTarget(new BABYLON.Vector3(item.target.x, item.target.y, item.target.z));
+                            realObjects[name].position.x = item.x;
+                            realObjects[name].position.y = item.y;
+                            realObjects[name].position.z = item.z;
                             break;
                         case "ground":
                             // UNDONE: update ground
@@ -384,13 +386,15 @@ function render(time, model) {
                     break;
                 case "delete":
                     updateCount++;
-                    item.instance.dispose();
+                    realObjects[name].dispose();
+                    delete realObjects[name];
                     break;    
             }
         }
 
         return result;
     };
+
 
     // Simplistic startup, need to think about the app bootstrap and actual app model.
     // Lots of questions - for example should we embrace React for the HTML UI and just go all in?
@@ -402,6 +406,7 @@ function render(time, model) {
 
         var engine = new BABYLON.Engine(canvas, true);
         var lastDom = null;
+        var realObjects = {};
         var model = JSON.parse(modelInput.value);
         updateButton.addEventListener("click", function() { model = JSON.parse(modelInput.value) });
 
@@ -413,7 +418,8 @@ function render(time, model) {
             // camera.attachControl(canvas, true);
 
             lastDom = diff(lastDom, render(0, model));
-            lastDom = applyActions(lastDom, scene);
+            lastDom = applyActions(lastDom, scene, realObjects);
+            document.getElementById("domOutput").innerHTML = JSON.stringify(lastDom, undefined, 2);
             return scene;
         };
 
@@ -423,7 +429,8 @@ function render(time, model) {
         setInterval(function() {
             t++;
             lastDom = diff(lastDom, render(t, model));
-            lastDom = applyActions(lastDom, scene);
+            lastDom = applyActions(lastDom, scene, realObjects)
+            document.getElementById("domOutput").innerHTML = JSON.stringify(lastDom, undefined, 2);
         }, 32);
 
         engine.runRenderLoop(function () {

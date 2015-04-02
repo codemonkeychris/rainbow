@@ -1,6 +1,11 @@
 ///<reference path='Babylon.js-2.0/references/poly2tri.d.ts' />
 ///<reference path='Babylon.js-2.0/references/waa.d.ts' />
 ///<reference path='Babylon.js-2.0/babylon.2.0.d.ts' />
+// beginings of TypeScript definition for OM
+//
+var Rnb;
+(function (Rnb) {
+})(Rnb || (Rnb = {}));
 // UNDONE: need to think about JSON objects vs. creation functions... 
 //
 var App;
@@ -89,10 +94,11 @@ var App;
         return {
             camera1: {
                 type: 'freeCamera',
-                x: cameraX,
-                y: cameraY,
-                z: cameraZ,
-                target: { x: 0, y: 3, z: 0 }
+                x: 0,
+                y: 2,
+                z: -5,
+                target: { x: 0, y: 3, z: 0 },
+                attachControl: "renderCanvas"
             },
             ig: basicLights({ x: cameraX, y: cameraY, z: cameraZ }),
             material1: diffuse('seamless_stone_texture.jpg'),
@@ -138,121 +144,6 @@ var App;
     // next frame
     //
     var MAX_UPDATES = 20;
-    // JS records don't compose well in functional contexts, you can't merged function records easily (a+b), 
-    // so I opt'd for a simple {type:'composite'} which will be flattened before processing and completely
-    // erased.
-    //
-    function flatten(scene) {
-        var result = {};
-        var keys = Object.keys(scene);
-        for (var i = 0; i < keys.length; i++) {
-            var name = keys[i];
-            var value = scene[name];
-            if (scene[name].type == 'composite') {
-                var compKeys = Object.keys(value);
-                for (var i2 = 0; i2 < compKeys.length; i2++) {
-                    if (compKeys[i2] != 'type') {
-                        result[compKeys[i2]] = value[compKeys[i2]];
-                    }
-                }
-            }
-            else {
-                result[name] = scene[name];
-            }
-        }
-        return result;
-    }
-    // functions in the graph allow for lazy evaluation and graph queries, the common
-    // one I hit was the desire to get a list of all XXX elements to create shadows
-    //
-    function resolveFunctions(scene) {
-        var result = {};
-        var keys = Object.keys(scene);
-        for (var i = 0; i < keys.length; i++) {
-            var name = keys[i];
-            var value = scene[name];
-            if (value) {
-                var childKeys = Object.keys(value);
-                for (var i2 = 0; i2 < childKeys.length; i2++) {
-                    if (value[childKeys[i2]] instanceof Function) {
-                        value[childKeys[i2]] = value[childKeys[i2]](scene);
-                    }
-                }
-            }
-            result[name] = value;
-        }
-        return result;
-    }
-    // Incredibly niave implementation of DIFF... really this should just be replaced
-    // by React, i need to see how hard that would be with my own custom OM as the
-    // backend/DOM
-    //
-    function diff(master, newScene) {
-        newScene = resolveFunctions(flatten(newScene));
-        if (!master) {
-            var keys = Object.keys(newScene);
-            for (var i = 0; i < keys.length; i++) {
-                newScene[keys[i]].action = "create";
-            }
-            return newScene;
-        }
-        else {
-            var result = {};
-            var masterKeys = Object.keys(master);
-            var keys = Object.keys(newScene);
-            for (var i = 0; i < keys.length; i++) {
-                var name = keys[i];
-                if (!master[name]) {
-                    result[name] = newScene[name];
-                    result[name].action = "create";
-                }
-                else {
-                    result[name] = newScene[name];
-                    result[name].action = "update";
-                }
-            }
-            for (var i = 0; i < masterKeys.length; i++) {
-                var name = masterKeys[i];
-                if (!newScene[name]) {
-                    result[name] = master[name];
-                    result[name].action = "delete";
-                }
-            }
-            return result;
-        }
-    }
-    ;
-    // all of these update handlers are pretty bogus. Once DIFF becomes smart enough, we should clearly only 
-    // update the changed values.
-    // 
-    function updatePosition(item, r) {
-        r.position.x = item.x;
-        r.position.y = item.y;
-        r.position.z = item.z;
-    }
-    function updateGeometryProps(item, includeExpensive, realObjects, r) {
-        if (item.scaling) {
-            r.scaling.x = item.scaling.x;
-            r.scaling.y = item.scaling.y;
-            r.scaling.z = item.scaling.z;
-        }
-        updatePosition(item, r);
-        if (includeExpensive) {
-            r.receiveShadows = true;
-            if (item.material) {
-                r.material = realObjects[item.material];
-            }
-        }
-    }
-    function updateLightProps(item, r) {
-        r.intensity = item.intensity || 1;
-        if (item.diffuse) {
-            r.diffuse = new BABYLON.Color3(item.diffuse.r, item.diffuse.g, item.diffuse.b);
-        }
-        if (item.specular) {
-            r.specular = new BABYLON.Color3(item.specular.r, item.specular.g, item.specular.b);
-        }
-    }
     var handlers = {
         box: {
             create: function (rawItem, name, dom, scene, realObjects) {
@@ -391,15 +282,164 @@ var App;
                 var item = rawItem;
                 var r = realObjects[name] = new BABYLON.FreeCamera(name, new BABYLON.Vector3(item.x, item.y, item.z), scene);
                 r.setTarget(new BABYLON.Vector3(item.target.x, item.target.y, item.target.z));
+                if (item.attachControl) {
+                    r.attachControl(document.getElementById(item.attachControl), true);
+                }
             },
             update: function (rawItem, name, dom, scene, realObjects) {
                 var item = rawItem;
                 var r = realObjects[name];
                 r.setTarget(new BABYLON.Vector3(item.target.x, item.target.y, item.target.z));
                 updatePosition(item, r);
+            },
+            diff: function (newItem, oldItem) {
+                if (!oldItem) {
+                    newItem.action = "create";
+                    return newItem;
+                }
+                else if (!newItem) {
+                    oldItem.action = "delete";
+                    return oldItem;
+                }
+                else {
+                    var n = newItem;
+                    var o = oldItem;
+                    if (n.x !== o.x || n.y !== o.y || n.z !== o.z) {
+                        newItem.action = "update";
+                    }
+                    // UNDONE: target diff
+                    return newItem;
+                }
             }
         }
     };
+    // JS records don't compose well in functional contexts, you can't merged function records easily (a+b), 
+    // so I opt'd for a simple {type:'composite'} which will be flattened before processing and completely
+    // erased.
+    //
+    function flatten(scene) {
+        var result = {};
+        var keys = Object.keys(scene);
+        for (var i = 0; i < keys.length; i++) {
+            var name = keys[i];
+            var value = scene[name];
+            if (scene[name].type == 'composite') {
+                var compKeys = Object.keys(value);
+                for (var i2 = 0; i2 < compKeys.length; i2++) {
+                    if (compKeys[i2] != 'type') {
+                        result[compKeys[i2]] = value[compKeys[i2]];
+                    }
+                }
+            }
+            else {
+                result[name] = scene[name];
+            }
+        }
+        return result;
+    }
+    // functions in the graph allow for lazy evaluation and graph queries, the common
+    // one I hit was the desire to get a list of all XXX elements to create shadows
+    //
+    function resolveFunctions(scene) {
+        var result = {};
+        var keys = Object.keys(scene);
+        for (var i = 0; i < keys.length; i++) {
+            var name = keys[i];
+            var value = scene[name];
+            if (value) {
+                var childKeys = Object.keys(value);
+                for (var i2 = 0; i2 < childKeys.length; i2++) {
+                    if (value[childKeys[i2]] instanceof Function) {
+                        value[childKeys[i2]] = value[childKeys[i2]](scene);
+                    }
+                }
+            }
+            result[name] = value;
+        }
+        return result;
+    }
+    // Incredibly niave implementation of DIFF... really this should just be replaced
+    // by React, i need to see how hard that would be with my own custom OM as the
+    // backend/DOM
+    //
+    function diff(master, newScene) {
+        newScene = resolveFunctions(flatten(newScene));
+        if (!master) {
+            var keys = Object.keys(newScene);
+            for (var i = 0; i < keys.length; i++) {
+                newScene[keys[i]].action = "create";
+            }
+            return newScene;
+        }
+        else {
+            var result = {};
+            var masterKeys = Object.keys(master);
+            var keys = Object.keys(newScene);
+            for (var i = 0; i < keys.length; i++) {
+                var name = keys[i];
+                var n = newScene[name];
+                var o = master[name];
+                var type = (n && n.type) || (o && o.type);
+                var diff_handler = handlers[type].diff;
+                if (diff_handler) {
+                    result[name] = diff_handler(n, o);
+                    if (!result[name]) {
+                        throw "bad diff handler!";
+                    }
+                }
+                else {
+                    if (!o) {
+                        result[name] = n;
+                        result[name].action = "create";
+                    }
+                    else {
+                        result[name] = n;
+                        result[name].action = "update";
+                    }
+                }
+            }
+            for (var i = 0; i < masterKeys.length; i++) {
+                var name = masterKeys[i];
+                if (!newScene[name]) {
+                    result[name] = master[name];
+                    result[name].action = "delete";
+                }
+            }
+            return result;
+        }
+    }
+    ;
+    // all of these update handlers are pretty bogus. Once DIFF becomes smart enough, we should clearly only 
+    // update the changed values.
+    // 
+    function updatePosition(item, r) {
+        r.position.x = item.x;
+        r.position.y = item.y;
+        r.position.z = item.z;
+    }
+    function updateGeometryProps(item, includeExpensive, realObjects, r) {
+        if (item.scaling) {
+            r.scaling.x = item.scaling.x;
+            r.scaling.y = item.scaling.y;
+            r.scaling.z = item.scaling.z;
+        }
+        updatePosition(item, r);
+        if (includeExpensive) {
+            r.receiveShadows = true;
+            if (item.material) {
+                r.material = realObjects[item.material];
+            }
+        }
+    }
+    function updateLightProps(item, r) {
+        r.intensity = item.intensity || 1;
+        if (item.diffuse) {
+            r.diffuse = new BABYLON.Color3(item.diffuse.r, item.diffuse.g, item.diffuse.b);
+        }
+        if (item.specular) {
+            r.specular = new BABYLON.Color3(item.specular.r, item.specular.g, item.specular.b);
+        }
+    }
     // Poorly factored and horribly inneficient. This started as 20 lines, and kept growing. 
     // Desparately needs refactoring and some design work
     //
@@ -434,6 +474,9 @@ var App;
                     updateCount++;
                     realObjects[name].dispose();
                     delete realObjects[name];
+                    break;
+                default:
+                    result[name] = item;
                     break;
             }
         }

@@ -162,6 +162,7 @@ module Rnb {
         // UNDONE: subCameras: any[];
         layerMask?: number;
         fovMode?: number;
+        attachControl?: string;
     }
     export interface TargetCamera extends Camera {
         cameraDirection?: Vector3;
@@ -186,14 +187,15 @@ module Rnb {
     export interface Composite {
         type: string;
         action?: string;
-        [key: string]: Element | Material | Geometry | string;
+        [key: string]: GraphElement | string;
     }
     export interface SceneGraph {
-        [key: string]: Element | Material | Geometry | ShadowGenerator | Camera | Light | Composite;
+        [key: string]: GraphElement | Composite;
     }
     export interface SceneGraphToValue<T> {
         (graph : Rnb.SceneGraph) : T;
     }
+    export type GraphElement = Element | Material | Geometry | ShadowGenerator | Camera | Light;
 }
 
 // UNDONE: need to think about JSON objects vs. creation functions... 
@@ -287,10 +289,11 @@ module App {
         return <Rnb.SceneGraph>{
             camera1: {
                 type: 'freeCamera',
-                x: cameraX, 
-                y: cameraY, 
-                z: cameraZ,
-                target: {x:0, y:3, z:0}
+                x: 0, 
+                y: 2, 
+                z: -5,
+                target: {x:0, y:3, z:0},
+                attachControl: "renderCanvas"
             },
             ig: basicLights({x: cameraX, y: cameraY, z: cameraZ}),
             material1 : diffuse('seamless_stone_texture.jpg'),
@@ -330,11 +333,12 @@ module App {
 }
 
 interface ApplyHandlerCallback {
-    (rawItem: Rnb.Element | Rnb.Material | Rnb.Geometry, name: string, dom, scene, realObjects);
+    (rawItem: Rnb.GraphElement, name: string, dom, scene, realObjects);
 }
 interface ApplyHandler {
     create: ApplyHandlerCallback;
     update: ApplyHandlerCallback;
+    diff?: (oldItem: Rnb.GraphElement, newItem: Rnb.GraphElement) => Rnb.GraphElement;
 }
 interface HandlerBlock {
     [key:string] : ApplyHandler;
@@ -346,6 +350,201 @@ interface HandlerBlock {
     // next frame
     //
     var MAX_UPDATES = 20;
+    var handlers : HandlerBlock = {
+        box: {
+            create: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+                var item = <Rnb.Box>rawItem;
+
+                var r = realObjects[name] = BABYLON.Mesh.CreateBox(name, item.size, scene);
+                updateGeometryProps(item, true, realObjects, r);
+            },
+            update: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+                updateGeometryProps(<Rnb.Box>rawItem, false, realObjects, realObjects[name]);
+            }
+        },
+        sphere: {
+            create: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+                var item = <Rnb.Sphere>rawItem;
+
+                var r = realObjects[name] = BABYLON.Mesh.CreateSphere(name, item.segments || 16, item.diameter, scene, true);
+                updateGeometryProps(item, true, realObjects, r);
+            },
+            update: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+                var item = <Rnb.Sphere>rawItem;
+                updateGeometryProps(item, false, realObjects, realObjects[name]);
+            }
+        },
+        ground: {
+            create: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+                var item = <Rnb.Ground>rawItem;
+
+                var r = realObjects[name] = BABYLON.Mesh.CreateGround(name, item.width, item.depth, item.segments, scene);
+                updateGeometryProps(item, true, realObjects, r);
+            },
+            update: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+                updateGeometryProps(<Rnb.Ground>rawItem, false, realObjects, realObjects[name]);
+            }
+        },
+        groundFromHeightMap: {
+            create: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+                var item = <Rnb.GroundFromHeightMap>rawItem;
+
+                var r = realObjects[name] = 
+                    BABYLON.Mesh.CreateGroundFromHeightMap(name, 
+                        item.url, 
+                        item.width, 
+                        item.depth, 
+                        item.segments, 
+                        item.minHeight, 
+                        item.maxHeight,  
+                        scene, 
+                        false);
+                updateGeometryProps(item, true, realObjects, r);
+            },
+            update: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+                updateGeometryProps(<Rnb.GroundFromHeightMap>rawItem, false, realObjects, realObjects[name]);
+            }
+        },
+        hemisphericLight: {
+            create: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+                var item = <Rnb.HemisphericLight>rawItem;
+                var r = realObjects[name] = new BABYLON.HemisphericLight(name, new BABYLON.Vector3(item.direction.x, item.direction.y, item.direction.z), scene);
+                updateLightProps(item, r);
+                if (item.groundColor) {
+                    r.groundColor.r = item.groundColor.r;
+                    r.groundColor.g = item.groundColor.g;
+                    r.groundColor.b = item.groundColor.b;
+                }
+            },
+            update: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+                var item = <Rnb.HemisphericLight>rawItem;
+
+                var r = realObjects[name];
+                updateLightProps(item, r);
+                if (item.groundColor) {
+                    r.groundColor.r = item.groundColor.r;
+                    r.groundColor.g = item.groundColor.g;
+                    r.groundColor.b = item.groundColor.b;
+                }
+            }
+        },
+        pointLight: {
+            create: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+                var item = <Rnb.PointLight>rawItem;
+                var r = realObjects[name] = new BABYLON.PointLight(name, new BABYLON.Vector3(item.position.x, item.position.y, item.position.z), scene);
+                updateLightProps(item, r);
+            },
+            update: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+                var item = <Rnb.PointLight>rawItem;
+
+                var r = realObjects[name];
+                updatePosition(item.position, r);
+                updateLightProps(item, r);
+            }
+        },
+        directionalLight: {
+            create: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+                var item = <Rnb.DirectionalLight>rawItem;
+
+                var r = realObjects[name] = new BABYLON.DirectionalLight(name, new BABYLON.Vector3(item.direction.x, item.direction.y, item.direction.z), scene);
+                updatePosition(item.position, r);
+                updateLightProps(item, r);
+            },
+            update: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+                var item = <Rnb.DirectionalLight>rawItem;
+
+                var r = realObjects[name];
+                r.direction = new BABYLON.Vector3(item.direction.x, item.direction.y, item.direction.z)
+                updatePosition(item.position, r);
+                updateLightProps(item, r);
+            }
+        },
+        shadowGenerator: {
+            create: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+                var item = <Rnb.ShadowGenerator>rawItem;
+
+                var r = realObjects[name] = new BABYLON.ShadowGenerator(1024, realObjects[item.light])
+                r.usePoissonSampling = true;
+                var renderList = r.getShadowMap().renderList;
+                for (var i=0; i<item.renderList.length; i++) {
+                    renderList.push(realObjects[item.renderList[i]]);
+                }
+            },
+            update: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+                var item = <Rnb.ShadowGenerator>rawItem;
+
+                // UNDONE: update shadowGenerator
+            }
+        },
+        material: {
+            create: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+                var item = <Rnb.StandardMaterial>rawItem;
+
+                var r = realObjects[name] = new BABYLON.StandardMaterial(name, scene);
+                if (item.diffuseTexture) {
+                    if (item.diffuseTexture.type == "texture") {
+                        var texture = <Rnb.Texture>item.diffuseTexture;
+                        var realTexture = new BABYLON.Texture(texture.url, scene);
+                        r.diffuseTexture = realTexture;
+                        if (texture.uScale) { realTexture.uScale = texture.uScale }
+                        if (texture.vScale) { realTexture.vScale = texture.vScale }
+                        if (item.specularColor) { 
+                            r.specularColor = 
+                                new BABYLON.Color3(
+                                    item.specularColor.r, 
+                                    item.specularColor.g, 
+                                    item.specularColor.b
+                                ); 
+                        }
+                    }
+                }
+            },
+            update: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+                var item = <Rnb.ShadowGenerator>rawItem;
+
+                    // UNDONE: update material - need really diffing for that
+            }
+        },
+        freeCamera: {
+            create: function(rawItem: Rnb.GraphElement, name: string, dom, scene, realObjects) {
+                var item = <Rnb.FreeCamera>rawItem;
+
+                var r = realObjects[name] = new BABYLON.FreeCamera(name, new BABYLON.Vector3(item.x, item.y, item.z), scene);
+                r.setTarget(new BABYLON.Vector3(item.target.x, item.target.y, item.target.z));
+                if (item.attachControl) {
+                    r.attachControl(document.getElementById(item.attachControl), true);
+                }
+            },
+            update: function(rawItem: Rnb.GraphElement, name: string, dom, scene, realObjects) {
+                var item = <Rnb.FreeCamera>rawItem;
+
+                var r = realObjects[name];
+                r.setTarget(new BABYLON.Vector3(item.target.x, item.target.y, item.target.z));
+                updatePosition(item, r);
+            },
+            diff: function(newItem: Rnb.GraphElement, oldItem: Rnb.GraphElement): Rnb.GraphElement {
+
+                if (!oldItem) {
+                    newItem.action = "create";
+                    return newItem;
+                }
+                else if (!newItem) {
+                    oldItem.action = "delete";
+                    return oldItem;
+                }
+                else {
+                    var n = <Rnb.FreeCamera>newItem;
+                    var o = <Rnb.FreeCamera>oldItem;
+
+                    if (n.x !== o.x || n.y !== o.y || n.z !== o.z) {
+                        newItem.action = "update";
+                    }
+                    // UNDONE: target diff
+                    return newItem;
+                }
+            }
+        }
+    }
 
     // JS records don't compose well in functional contexts, you can't merged function records easily (a+b), 
     // so I opt'd for a simple {type:'composite'} which will be flattened before processing and completely
@@ -415,15 +614,28 @@ interface HandlerBlock {
             var keys = Object.keys(newScene);
             for (var i=0; i<keys.length; i++) {
                 var name = keys[i];
-                if (!master[name]) {
-                    result[name] = newScene[name];
-                    result[name].action = "create";
+
+                var n = newScene[name];
+                var o = master[name];
+
+                var type = (n && n.type) || (o && o.type);
+                var diff_handler = handlers[type].diff;
+                if (diff_handler) {
+                    result[name] = diff_handler(n, o);
+                    if (!result[name]) { throw "bad diff handler!"; }
                 }
                 else {
-                    result[name] = newScene[name];
-                    result[name].action = "update";
+                    if (!o) {
+                        result[name] = n;
+                        result[name].action = "create";
+                    }
+                    else {
+                        result[name] = n;
+                        result[name].action = "update";
+                    }
                 }
             }
+
             for (var i=0; i<masterKeys.length; i++) {
                 var name = masterKeys[i];
                 if (!newScene[name]) {
@@ -464,177 +676,6 @@ interface HandlerBlock {
         }
         if (item.specular) {
             r.specular = new BABYLON.Color3(item.specular.r, item.specular.g, item.specular.b);
-        }
-    }
-    var handlers : HandlerBlock = {
-        box: {
-            create: function (rawItem : Rnb.Element | Rnb.Material | Rnb.Geometry | Rnb.ShadowGenerator | Rnb.Camera | Rnb.Light, name : string, dom, scene, realObjects) {
-                var item = <Rnb.Box>rawItem;
-
-                var r = realObjects[name] = BABYLON.Mesh.CreateBox(name, item.size, scene);
-                updateGeometryProps(item, true, realObjects, r);
-            },
-            update: function (rawItem : Rnb.Element | Rnb.Material | Rnb.Geometry | Rnb.ShadowGenerator | Rnb.Camera | Rnb.Light, name : string, dom, scene, realObjects) {
-                updateGeometryProps(<Rnb.Box>rawItem, false, realObjects, realObjects[name]);
-            }
-        },
-        sphere: {
-            create: function (rawItem : Rnb.Element | Rnb.Material | Rnb.Geometry | Rnb.ShadowGenerator | Rnb.Camera | Rnb.Light, name : string, dom, scene, realObjects) {
-                var item = <Rnb.Sphere>rawItem;
-
-                var r = realObjects[name] = BABYLON.Mesh.CreateSphere(name, item.segments || 16, item.diameter, scene, true);
-                updateGeometryProps(item, true, realObjects, r);
-            },
-            update: function (rawItem : Rnb.Element | Rnb.Material | Rnb.Geometry | Rnb.ShadowGenerator | Rnb.Camera | Rnb.Light, name : string, dom, scene, realObjects) {
-                var item = <Rnb.Sphere>rawItem;
-                updateGeometryProps(item, false, realObjects, realObjects[name]);
-            }
-        },
-        ground: {
-            create: function (rawItem : Rnb.Element | Rnb.Material | Rnb.Geometry | Rnb.ShadowGenerator | Rnb.Camera | Rnb.Light, name : string, dom, scene, realObjects) {
-                var item = <Rnb.Ground>rawItem;
-
-                var r = realObjects[name] = BABYLON.Mesh.CreateGround(name, item.width, item.depth, item.segments, scene);
-                updateGeometryProps(item, true, realObjects, r);
-            },
-            update: function (rawItem : Rnb.Element | Rnb.Material | Rnb.Geometry | Rnb.ShadowGenerator | Rnb.Camera | Rnb.Light, name : string, dom, scene, realObjects) {
-                updateGeometryProps(<Rnb.Ground>rawItem, false, realObjects, realObjects[name]);
-            }
-        },
-        groundFromHeightMap: {
-            create: function (rawItem : Rnb.Element | Rnb.Material | Rnb.Geometry | Rnb.ShadowGenerator | Rnb.Camera | Rnb.Light, name : string, dom, scene, realObjects) {
-                var item = <Rnb.GroundFromHeightMap>rawItem;
-
-                var r = realObjects[name] = 
-                    BABYLON.Mesh.CreateGroundFromHeightMap(name, 
-                        item.url, 
-                        item.width, 
-                        item.depth, 
-                        item.segments, 
-                        item.minHeight, 
-                        item.maxHeight,  
-                        scene, 
-                        false);
-                updateGeometryProps(item, true, realObjects, r);
-            },
-            update: function (rawItem : Rnb.Element | Rnb.Material | Rnb.Geometry | Rnb.ShadowGenerator | Rnb.Camera | Rnb.Light, name : string, dom, scene, realObjects) {
-                updateGeometryProps(<Rnb.GroundFromHeightMap>rawItem, false, realObjects, realObjects[name]);
-            }
-        },
-        hemisphericLight: {
-            create: function (rawItem : Rnb.Element | Rnb.Material | Rnb.Geometry | Rnb.ShadowGenerator | Rnb.Camera | Rnb.Light, name : string, dom, scene, realObjects) {
-                var item = <Rnb.HemisphericLight>rawItem;
-                var r = realObjects[name] = new BABYLON.HemisphericLight(name, new BABYLON.Vector3(item.direction.x, item.direction.y, item.direction.z), scene);
-                updateLightProps(item, r);
-                if (item.groundColor) {
-                    r.groundColor.r = item.groundColor.r;
-                    r.groundColor.g = item.groundColor.g;
-                    r.groundColor.b = item.groundColor.b;
-                }
-            },
-            update: function (rawItem : Rnb.Element | Rnb.Material | Rnb.Geometry | Rnb.ShadowGenerator | Rnb.Camera | Rnb.Light, name : string, dom, scene, realObjects) {
-                var item = <Rnb.HemisphericLight>rawItem;
-
-                var r = realObjects[name];
-                updateLightProps(item, r);
-                if (item.groundColor) {
-                    r.groundColor.r = item.groundColor.r;
-                    r.groundColor.g = item.groundColor.g;
-                    r.groundColor.b = item.groundColor.b;
-                }
-            }
-        },
-        pointLight: {
-            create: function (rawItem : Rnb.Element | Rnb.Material | Rnb.Geometry | Rnb.ShadowGenerator | Rnb.Camera | Rnb.Light, name : string, dom, scene, realObjects) {
-                var item = <Rnb.PointLight>rawItem;
-                var r = realObjects[name] = new BABYLON.PointLight(name, new BABYLON.Vector3(item.position.x, item.position.y, item.position.z), scene);
-                updateLightProps(item, r);
-            },
-            update: function (rawItem : Rnb.Element | Rnb.Material | Rnb.Geometry | Rnb.ShadowGenerator | Rnb.Camera | Rnb.Light, name : string, dom, scene, realObjects) {
-                var item = <Rnb.PointLight>rawItem;
-
-                var r = realObjects[name];
-                updatePosition(item.position, r);
-                updateLightProps(item, r);
-            }
-        },
-        directionalLight: {
-            create: function (rawItem : Rnb.Element | Rnb.Material | Rnb.Geometry | Rnb.ShadowGenerator | Rnb.Camera | Rnb.Light, name : string, dom, scene, realObjects) {
-                var item = <Rnb.DirectionalLight>rawItem;
-
-                var r = realObjects[name] = new BABYLON.DirectionalLight(name, new BABYLON.Vector3(item.direction.x, item.direction.y, item.direction.z), scene);
-                updatePosition(item.position, r);
-                updateLightProps(item, r);
-            },
-            update: function (rawItem : Rnb.Element | Rnb.Material | Rnb.Geometry | Rnb.ShadowGenerator | Rnb.Camera | Rnb.Light, name : string, dom, scene, realObjects) {
-                var item = <Rnb.DirectionalLight>rawItem;
-
-                var r = realObjects[name];
-                r.direction = new BABYLON.Vector3(item.direction.x, item.direction.y, item.direction.z)
-                updatePosition(item.position, r);
-                updateLightProps(item, r);
-            }
-        },
-        shadowGenerator: {
-            create: function (rawItem : Rnb.Element | Rnb.Material | Rnb.Geometry | Rnb.ShadowGenerator | Rnb.Camera | Rnb.Light, name : string, dom, scene, realObjects) {
-                var item = <Rnb.ShadowGenerator>rawItem;
-
-                var r = realObjects[name] = new BABYLON.ShadowGenerator(1024, realObjects[item.light])
-                r.usePoissonSampling = true;
-                var renderList = r.getShadowMap().renderList;
-                for (var i=0; i<item.renderList.length; i++) {
-                    renderList.push(realObjects[item.renderList[i]]);
-                }
-            },
-            update: function (rawItem : Rnb.Element | Rnb.Material | Rnb.Geometry | Rnb.ShadowGenerator | Rnb.Camera | Rnb.Light, name : string, dom, scene, realObjects) {
-                var item = <Rnb.ShadowGenerator>rawItem;
-
-                // UNDONE: update shadowGenerator
-            }
-        },
-        material: {
-            create: function (rawItem : Rnb.Element | Rnb.Material | Rnb.Geometry | Rnb.ShadowGenerator | Rnb.Camera | Rnb.Light, name : string, dom, scene, realObjects) {
-                var item = <Rnb.StandardMaterial>rawItem;
-
-                var r = realObjects[name] = new BABYLON.StandardMaterial(name, scene);
-                if (item.diffuseTexture) {
-                    if (item.diffuseTexture.type == "texture") {
-                        var texture = <Rnb.Texture>item.diffuseTexture;
-                        var realTexture = new BABYLON.Texture(texture.url, scene);
-                        r.diffuseTexture = realTexture;
-                        if (texture.uScale) { realTexture.uScale = texture.uScale }
-                        if (texture.vScale) { realTexture.vScale = texture.vScale }
-                        if (item.specularColor) { 
-                            r.specularColor = 
-                                new BABYLON.Color3(
-                                    item.specularColor.r, 
-                                    item.specularColor.g, 
-                                    item.specularColor.b
-                                ); 
-                        }
-                    }
-                }
-            },
-            update: function (rawItem : Rnb.Element | Rnb.Material | Rnb.Geometry | Rnb.ShadowGenerator | Rnb.Camera | Rnb.Light, name : string, dom, scene, realObjects) {
-                var item = <Rnb.ShadowGenerator>rawItem;
-
-                    // UNDONE: update material - need really diffing for that
-            }
-        },
-        freeCamera: {
-            create: function (rawItem : Rnb.Element | Rnb.Material | Rnb.Geometry | Rnb.ShadowGenerator | Rnb.Camera | Rnb.Light, name : string, dom, scene, realObjects) {
-                var item = <Rnb.FreeCamera>rawItem;
-
-                var r = realObjects[name] = new BABYLON.FreeCamera(name, new BABYLON.Vector3(item.x, item.y, item.z), scene);
-                r.setTarget(new BABYLON.Vector3(item.target.x, item.target.y, item.target.z));
-            },
-            update: function (rawItem : Rnb.Element | Rnb.Material | Rnb.Geometry | Rnb.ShadowGenerator | Rnb.Camera | Rnb.Light, name : string, dom, scene, realObjects) {
-                var item = <Rnb.FreeCamera>rawItem;
-
-                var r = realObjects[name];
-                r.setTarget(new BABYLON.Vector3(item.target.x, item.target.y, item.target.z));
-                updatePosition(item, r);
-            }
         }
     }
 
@@ -678,6 +719,9 @@ interface HandlerBlock {
                     realObjects[name].dispose();
                     delete realObjects[name];
                     break;    
+                default:
+                    result[name] = item;
+                    break;
             }
         }
 

@@ -282,6 +282,7 @@ module App {
         var cameraX = (Math.sin(time/40) * 10);
         var cameraY = 5;
         var cameraZ = (Math.sin((time+20)/40) * 10);
+        var sphereScale = Math.abs(Math.sin(time / 20)) * 3;
 
         return <Rnb.SceneGraph>{
             camera1: {
@@ -315,8 +316,9 @@ module App {
 
             "vis(-1)" : <Rnb.Sphere>{
                 type: 'sphere',
-                x : 0, y: 2, z: -2,
+                x : 2, y: 3, z: 2,
                 diameter: 1,
+                scaling: {x:sphereScale, y:sphereScale, z:sphereScale},
                 segments: 12,
                 material: "material1"
             },
@@ -480,11 +482,12 @@ interface HandlerBlock {
             create: function (rawItem : Rnb.Element | Rnb.Material | Rnb.Geometry | Rnb.ShadowGenerator | Rnb.Camera | Rnb.Light, name : string, dom, scene, realObjects) {
                 var item = <Rnb.Sphere>rawItem;
 
-                var r = realObjects[name] = BABYLON.Mesh.CreateSphere(name, item.segments || 16, item.diameter, scene);
+                var r = realObjects[name] = BABYLON.Mesh.CreateSphere(name, item.segments || 16, item.diameter, scene, true);
                 updateGeometryProps(item, true, realObjects, r);
             },
             update: function (rawItem : Rnb.Element | Rnb.Material | Rnb.Geometry | Rnb.ShadowGenerator | Rnb.Camera | Rnb.Light, name : string, dom, scene, realObjects) {
-                updateGeometryProps(<Rnb.Sphere>rawItem, false, realObjects, realObjects[name]);
+                var item = <Rnb.Sphere>rawItem;
+                updateGeometryProps(item, false, realObjects, realObjects[name]);
             }
         },
         ground: {

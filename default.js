@@ -85,6 +85,7 @@ var App;
         var cameraX = (Math.sin(time / 40) * 10);
         var cameraY = 5;
         var cameraZ = (Math.sin((time + 20) / 40) * 10);
+        var sphereScale = Math.abs(Math.sin(time / 20)) * 3;
         return {
             camera1: {
                 type: 'freeCamera',
@@ -116,10 +117,11 @@ var App;
             }, { type: 'composite' }),
             "vis(-1)": {
                 type: 'sphere',
-                x: 0,
-                y: 2,
-                z: -2,
+                x: 2,
+                y: 3,
+                z: 2,
                 diameter: 1,
+                scaling: { x: sphereScale, y: sphereScale, z: sphereScale },
                 segments: 12,
                 material: "material1"
             },
@@ -265,11 +267,12 @@ var App;
         sphere: {
             create: function (rawItem, name, dom, scene, realObjects) {
                 var item = rawItem;
-                var r = realObjects[name] = BABYLON.Mesh.CreateSphere(name, item.segments || 16, item.diameter, scene);
+                var r = realObjects[name] = BABYLON.Mesh.CreateSphere(name, item.segments || 16, item.diameter, scene, true);
                 updateGeometryProps(item, true, realObjects, r);
             },
             update: function (rawItem, name, dom, scene, realObjects) {
-                updateGeometryProps(rawItem, false, realObjects, realObjects[name]);
+                var item = rawItem;
+                updateGeometryProps(item, false, realObjects, realObjects[name]);
             }
         },
         ground: {

@@ -13,9 +13,7 @@ var App;
             type: 'composite',
             light1: {
                 type: 'directionalLight',
-                x: 0,
-                y: 13,
-                z: 0,
+                position: { x: 0, y: 13, z: 0 },
                 direction: { x: 0, y: -1, z: .1 },
                 intensity: .7,
                 diffuse: { r: .9, g: .9, b: 1 },
@@ -23,9 +21,7 @@ var App;
             },
             light2: {
                 type: 'directionalLight',
-                x: cameraPos.x,
-                y: cameraPos.y * 2,
-                z: cameraPos.z * 1.2,
+                position: { x: cameraPos.x, y: cameraPos.y * 2, z: cameraPos.z * 1.2 },
                 direction: {
                     x: -cameraPos.x,
                     y: -cameraPos.y,
@@ -36,11 +32,8 @@ var App;
             }
         };
     }
-    function diffuse(url, diffuseProps) {
-        diffuseProps = diffuseProps || {};
-        diffuseProps.type = 'texture';
-        diffuseProps.url = url;
-        return { type: 'material', diffuseTexture: diffuseProps };
+    function diffuse(url) {
+        return { type: 'material', diffuseTexture: { type: 'texture', url: url } };
     }
     function shadowFor(lightName, renderList) {
         return { type: 'shadowGenerator', light: lightName, renderList: renderList };
@@ -48,6 +41,9 @@ var App;
     function flatGround(width, depth, material) {
         return {
             type: 'ground',
+            x: 0,
+            y: 0,
+            z: 0,
             width: width,
             depth: depth,
             segments: 8,
@@ -57,6 +53,9 @@ var App;
     function groundFromHeightMap(width, depth, minHeight, maxHeight, heightMapUrl, material) {
         return {
             type: 'groundFromHeightMap',
+            x: 0,
+            y: 0,
+            z: 0,
             width: width,
             depth: depth,
             minHeight: minHeight,
@@ -76,9 +75,7 @@ var App;
      */
     function select(pattern) {
         return function (x) {
-            return Object.keys(x).filter(function (i) {
-                return i.indexOf(pattern) != -1;
-            });
+            return Object.keys(x).filter(function (i) { return i.indexOf(pattern) != -1; });
         };
     }
     function render(time, model) {
@@ -98,7 +95,11 @@ var App;
             },
             ig: basicLights({ x: cameraX, y: cameraY, z: cameraZ }),
             material1: diffuse('seamless_stone_texture.jpg'),
-            groundMaterial: diffuse('ground.jpg', { uScale: 4, vScale: 4, specularColor: { r: 0, g: 0, b: 0 } }),
+            groundMaterial: {
+                type: 'material',
+                specularColor: { r: 0, g: 0, b: 0 },
+                diffuseTexture: { type: 'texture', url: 'ground.jpg', uScale: 4, vScale: 4 }
+            },
             ground1: groundFromHeightMap(50, 50, 0, 3, "heightMap.png", "groundMaterial"),
             ig2: model.reduce(function (prev, current, index, arr) {
                 var name = 'vis(' + index + ')';
@@ -113,6 +114,15 @@ var App;
                 };
                 return prev;
             }, { type: 'composite' }),
+            "vis(-1)": {
+                type: 'sphere',
+                x: 0,
+                y: 2,
+                z: -2,
+                diameter: 1,
+                segments: 12,
+                material: "material1"
+            },
             shadow1: shadowFor('light2', select("vis(")),
             shadow2: shadowFor('light1', select("vis("))
         };
@@ -210,6 +220,183 @@ var App;
         }
     }
     ;
+    // all of these update handlers are pretty bogus. Once DIFF becomes smart enough, we should clearly only 
+    // update the changed values.
+    // 
+    function updatePosition(item, r) {
+        r.position.x = item.x;
+        r.position.y = item.y;
+        r.position.z = item.z;
+    }
+    function updateGeometryProps(item, includeExpensive, realObjects, r) {
+        if (item.scaling) {
+            r.scaling.x = item.scaling.x;
+            r.scaling.y = item.scaling.y;
+            r.scaling.z = item.scaling.z;
+        }
+        updatePosition(item, r);
+        if (includeExpensive) {
+            r.receiveShadows = true;
+            if (item.material) {
+                r.material = realObjects[item.material];
+            }
+        }
+    }
+    function updateLightProps(item, r) {
+        r.intensity = item.intensity || 1;
+        if (item.diffuse) {
+            r.diffuse = new BABYLON.Color3(item.diffuse.r, item.diffuse.g, item.diffuse.b);
+        }
+        if (item.specular) {
+            r.specular = new BABYLON.Color3(item.specular.r, item.specular.g, item.specular.b);
+        }
+    }
+    var handlers = {
+        box: {
+            create: function (rawItem, name, dom, scene, realObjects) {
+                var item = rawItem;
+                var r = realObjects[name] = BABYLON.Mesh.CreateBox(name, item.size, scene);
+                updateGeometryProps(item, true, realObjects, r);
+            },
+            update: function (rawItem, name, dom, scene, realObjects) {
+                updateGeometryProps(rawItem, false, realObjects, realObjects[name]);
+            }
+        },
+        sphere: {
+            create: function (rawItem, name, dom, scene, realObjects) {
+                var item = rawItem;
+                var r = realObjects[name] = BABYLON.Mesh.CreateSphere(name, item.segments || 16, item.diameter, scene);
+                updateGeometryProps(item, true, realObjects, r);
+            },
+            update: function (rawItem, name, dom, scene, realObjects) {
+                updateGeometryProps(rawItem, false, realObjects, realObjects[name]);
+            }
+        },
+        ground: {
+            create: function (rawItem, name, dom, scene, realObjects) {
+                var item = rawItem;
+                var r = realObjects[name] = BABYLON.Mesh.CreateGround(name, item.width, item.depth, item.segments, scene);
+                updateGeometryProps(item, true, realObjects, r);
+            },
+            update: function (rawItem, name, dom, scene, realObjects) {
+                updateGeometryProps(rawItem, false, realObjects, realObjects[name]);
+            }
+        },
+        groundFromHeightMap: {
+            create: function (rawItem, name, dom, scene, realObjects) {
+                var item = rawItem;
+                var r = realObjects[name] = BABYLON.Mesh.CreateGroundFromHeightMap(name, item.url, item.width, item.depth, item.segments, item.minHeight, item.maxHeight, scene, false);
+                updateGeometryProps(item, true, realObjects, r);
+            },
+            update: function (rawItem, name, dom, scene, realObjects) {
+                updateGeometryProps(rawItem, false, realObjects, realObjects[name]);
+            }
+        },
+        hemisphericLight: {
+            create: function (rawItem, name, dom, scene, realObjects) {
+                var item = rawItem;
+                var r = realObjects[name] = new BABYLON.HemisphericLight(name, new BABYLON.Vector3(item.direction.x, item.direction.y, item.direction.z), scene);
+                updateLightProps(item, r);
+                if (item.groundColor) {
+                    r.groundColor.r = item.groundColor.r;
+                    r.groundColor.g = item.groundColor.g;
+                    r.groundColor.b = item.groundColor.b;
+                }
+            },
+            update: function (rawItem, name, dom, scene, realObjects) {
+                var item = rawItem;
+                var r = realObjects[name];
+                updateLightProps(item, r);
+                if (item.groundColor) {
+                    r.groundColor.r = item.groundColor.r;
+                    r.groundColor.g = item.groundColor.g;
+                    r.groundColor.b = item.groundColor.b;
+                }
+            }
+        },
+        pointLight: {
+            create: function (rawItem, name, dom, scene, realObjects) {
+                var item = rawItem;
+                var r = realObjects[name] = new BABYLON.PointLight(name, new BABYLON.Vector3(item.position.x, item.position.y, item.position.z), scene);
+                updateLightProps(item, r);
+            },
+            update: function (rawItem, name, dom, scene, realObjects) {
+                var item = rawItem;
+                var r = realObjects[name];
+                updatePosition(item.position, r);
+                updateLightProps(item, r);
+            }
+        },
+        directionalLight: {
+            create: function (rawItem, name, dom, scene, realObjects) {
+                var item = rawItem;
+                var r = realObjects[name] = new BABYLON.DirectionalLight(name, new BABYLON.Vector3(item.direction.x, item.direction.y, item.direction.z), scene);
+                updatePosition(item.position, r);
+                updateLightProps(item, r);
+            },
+            update: function (rawItem, name, dom, scene, realObjects) {
+                var item = rawItem;
+                var r = realObjects[name];
+                r.direction = new BABYLON.Vector3(item.direction.x, item.direction.y, item.direction.z);
+                updatePosition(item.position, r);
+                updateLightProps(item, r);
+            }
+        },
+        shadowGenerator: {
+            create: function (rawItem, name, dom, scene, realObjects) {
+                var item = rawItem;
+                var r = realObjects[name] = new BABYLON.ShadowGenerator(1024, realObjects[item.light]);
+                r.usePoissonSampling = true;
+                var renderList = r.getShadowMap().renderList;
+                for (var i = 0; i < item.renderList.length; i++) {
+                    renderList.push(realObjects[item.renderList[i]]);
+                }
+            },
+            update: function (rawItem, name, dom, scene, realObjects) {
+                var item = rawItem;
+                // UNDONE: update shadowGenerator
+            }
+        },
+        material: {
+            create: function (rawItem, name, dom, scene, realObjects) {
+                var item = rawItem;
+                var r = realObjects[name] = new BABYLON.StandardMaterial(name, scene);
+                if (item.diffuseTexture) {
+                    if (item.diffuseTexture.type == "texture") {
+                        var texture = item.diffuseTexture;
+                        var realTexture = new BABYLON.Texture(texture.url, scene);
+                        r.diffuseTexture = realTexture;
+                        if (texture.uScale) {
+                            realTexture.uScale = texture.uScale;
+                        }
+                        if (texture.vScale) {
+                            realTexture.vScale = texture.vScale;
+                        }
+                        if (item.specularColor) {
+                            r.specularColor = new BABYLON.Color3(item.specularColor.r, item.specularColor.g, item.specularColor.b);
+                        }
+                    }
+                }
+            },
+            update: function (rawItem, name, dom, scene, realObjects) {
+                var item = rawItem;
+                // UNDONE: update material - need really diffing for that
+            }
+        },
+        freeCamera: {
+            create: function (rawItem, name, dom, scene, realObjects) {
+                var item = rawItem;
+                var r = realObjects[name] = new BABYLON.FreeCamera(name, new BABYLON.Vector3(item.x, item.y, item.z), scene);
+                r.setTarget(new BABYLON.Vector3(item.target.x, item.target.y, item.target.z));
+            },
+            update: function (rawItem, name, dom, scene, realObjects) {
+                var item = rawItem;
+                var r = realObjects[name];
+                r.setTarget(new BABYLON.Vector3(item.target.x, item.target.y, item.target.z));
+                updatePosition(item, r);
+            }
+        }
+    };
     // Poorly factored and horribly inneficient. This started as 20 lines, and kept growing. 
     // Desparately needs refactoring and some design work
     //
@@ -231,146 +418,13 @@ var App;
             switch (item.action) {
                 case "create":
                     updateCount++;
-                    switch (item.type) {
-                        case "shadowGenerator":
-                            realObjects[name] = new BABYLON.ShadowGenerator(1024, realObjects[item.light]);
-                            realObjects[name].usePoissonSampling = true;
-                            var renderList = realObjects[name].getShadowMap().renderList;
-                            for (var i = 0; i < item.renderList.length; i++) {
-                                renderList.push(realObjects[item.renderList[i]]);
-                            }
-                            break;
-                        case "sphere":
-                            realObjects[name] = BABYLON.Mesh.CreateSphere(name, item.segments || 16, item.size, scene);
-                            realObjects[name].position.x = item.x;
-                            realObjects[name].position.y = item.y;
-                            realObjects[name].position.z = item.z;
-                            realObjects[name].receiveShadows = true;
-                            break;
-                        case "box":
-                            realObjects[name] = BABYLON.Mesh.CreateBox(name, item.size, scene);
-                            if (item.scaling) {
-                                realObjects[name].scaling.x = item.scaling.x;
-                                realObjects[name].scaling.y = item.scaling.y;
-                                realObjects[name].scaling.z = item.scaling.z;
-                            }
-                            realObjects[name].position.x = item.x;
-                            realObjects[name].position.y = item.y;
-                            realObjects[name].position.z = item.z;
-                            if (item.material) {
-                                realObjects[name].material = realObjects[item.material];
-                            }
-                            break;
-                        case "hemisphericLight":
-                            realObjects[name] = new BABYLON.HemisphericLight(name, new BABYLON.Vector3(0, 1, 0), scene);
-                            realObjects[name].intensity = item.intensity;
-                            break;
-                        case "directionalLight":
-                            realObjects[name] = new BABYLON.DirectionalLight(name, new BABYLON.Vector3(item.direction.x, item.direction.y, item.direction.z), scene);
-                            realObjects[name].intensity = item.intensity || 1;
-                            realObjects[name].position.x = item.x;
-                            realObjects[name].position.y = item.y;
-                            realObjects[name].position.z = item.z;
-                            realObjects[name].diffuse = new BABYLON.Color3(item.diffuse.r, item.diffuse.g, item.diffuse.b);
-                            realObjects[name].specular = new BABYLON.Color3(item.specular.r, item.specular.g, item.specular.b);
-                            break;
-                        case "pointLight":
-                            realObjects[name] = new BABYLON.PointLight(name, new BABYLON.Vector3(item.x, item.y, item.z), scene);
-                            realObjects[name].diffuse = new BABYLON.Color3(item.diffuse.r, item.diffuse.g, item.diffuse.b);
-                            realObjects[name].specular = new BABYLON.Color3(item.specular.r, item.specular.g, item.specular.b);
-                            realObjects[name].intensity = item.intensity || 1;
-                            break;
-                        case "freeCamera":
-                            realObjects[name] = new BABYLON.FreeCamera(name, new BABYLON.Vector3(item.x, item.y, item.z), scene);
-                            realObjects[name].setTarget(new BABYLON.Vector3(item.target.x, item.target.y, item.target.z));
-                            break;
-                        case "ground":
-                            realObjects[name] = BABYLON.Mesh.CreateGround(name, item.width, item.depth, item.segments, scene);
-                            realObjects[name].receiveShadows = true;
-                            if (item.material) {
-                                realObjects[name].material = realObjects[item.material];
-                            }
-                            break;
-                        case "groundFromHeightMap":
-                            realObjects[name] = BABYLON.Mesh.CreateGroundFromHeightMap(name, item.url, item.width, item.depth, item.segments, item.minHeight, item.maxHeight, scene, false);
-                            realObjects[name].receiveShadows = true;
-                            if (item.material) {
-                                realObjects[name].material = realObjects[item.material];
-                            }
-                            break;
-                        case "material":
-                            realObjects[name] = new BABYLON.StandardMaterial(name, scene);
-                            if (item.diffuseTexture) {
-                                if (item.diffuseTexture.type == "texture") {
-                                    realObjects[name].diffuseTexture = new BABYLON.Texture(item.diffuseTexture.url, scene);
-                                    if (item.diffuseTexture.uScale) {
-                                        realObjects[name].diffuseTexture.uScale = item.diffuseTexture.uScale;
-                                    }
-                                    if (item.diffuseTexture.vScale) {
-                                        realObjects[name].diffuseTexture.vScale = item.diffuseTexture.vScale;
-                                    }
-                                    if (item.diffuseTexture.specularColor) {
-                                        realObjects[name].diffuseTexture.specularColor = new BABYLON.Color3(item.diffuseTexture.specularColor.r, item.diffuseTexture.specularColor.g, item.diffuseTexture.specularColor.b);
-                                    }
-                                }
-                            }
-                            break;
-                    }
                     delete item.action;
+                    handlers[item.type].create(item, name, dom, scene, realObjects);
                     result[name] = item;
                     break;
                 case "update":
-                    // UNDONE: update material - need really diffing for that
-                    // UNDONE: update shadow - need really diffing for that
-                    // UNDONE: update material
-                    // UNDONE: update groundFromHeightMap
-                    //
                     delete item.action;
-                    switch (item.type) {
-                        case "sphere":
-                            realObjects[name].position.x = item.x;
-                            realObjects[name].position.y = item.y;
-                            realObjects[name].position.z = item.z;
-                            break;
-                        case "box":
-                            if (item.scaling) {
-                                realObjects[name].scaling.x = item.scaling.x;
-                                realObjects[name].scaling.y = item.scaling.y;
-                                realObjects[name].scaling.z = item.scaling.z;
-                            }
-                            realObjects[name].position.x = item.x;
-                            realObjects[name].position.y = item.y;
-                            realObjects[name].position.z = item.z;
-                            break;
-                        case "pointLight":
-                            realObjects[name].intensity = item.intensity || 1;
-                            realObjects[name].diffuse = new BABYLON.Color3(item.diffuse.r, item.diffuse.g, item.diffuse.b);
-                            realObjects[name].specular = new BABYLON.Color3(item.specular.r, item.specular.g, item.specular.b);
-                            realObjects[name].position.x = item.x;
-                            realObjects[name].position.y = item.y;
-                            realObjects[name].position.z = item.z;
-                            break;
-                        case "directionalLight":
-                            realObjects[name].intensity = item.intensity || 1;
-                            realObjects[name].direction = new BABYLON.Vector3(item.direction.x, item.direction.y, item.direction.z);
-                            realObjects[name].diffuse = new BABYLON.Color3(item.diffuse.r, item.diffuse.g, item.diffuse.b);
-                            realObjects[name].specular = new BABYLON.Color3(item.specular.r, item.specular.g, item.specular.b);
-                            realObjects[name].position.x = item.x;
-                            realObjects[name].position.y = item.y;
-                            realObjects[name].position.z = item.z;
-                            break;
-                        case "hemisphericLight":
-                            realObjects[name].intensity = item.intensity;
-                            break;
-                        case "freeCamera":
-                            realObjects[name].setTarget(new BABYLON.Vector3(item.target.x, item.target.y, item.target.z));
-                            realObjects[name].position.x = item.x;
-                            realObjects[name].position.y = item.y;
-                            realObjects[name].position.z = item.z;
-                            break;
-                        case "ground":
-                            break;
-                    }
+                    handlers[item.type].update(item, name, dom, scene, realObjects);
                     result[name] = item;
                     break;
                 case "delete":

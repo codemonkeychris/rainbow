@@ -129,9 +129,9 @@ var App;
             },
             "vis(-2)": {
                 type: 'sphere',
-                position: { x: 0, y: 0, z: 3 },
+                position: { x: .5, y: .5, z: 3 },
                 relativeTo: '$camera',
-                diameter: 1,
+                diameter: .4,
                 segments: 12,
                 material: "material1"
             },

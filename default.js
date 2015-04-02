@@ -306,7 +306,8 @@ var globalCamera;
             create: function (rawItem, name, dom, scene, realObjects) {
                 var item = rawItem;
                 var r = realObjects[name] = new BABYLON.ShadowGenerator(1024, realObjects[item.light]);
-                r.usePoissonSampling = true;
+                r.usePoissonSampling = item.usePoissonSampling;
+                r.useVarianceShadowMap = item.useVarianceShadowMap;
                 var renderList = r.getShadowMap().renderList;
                 for (var i = 0; i < item.renderList.length; i++) {
                     renderList.push(realObjects[item.renderList[i]]);
@@ -314,7 +315,22 @@ var globalCamera;
             },
             update: function (rawItem, name, dom, scene, realObjects) {
                 var item = rawItem;
-                // UNDONE: update shadowGenerator
+                var r = realObjects[name];
+                var renderList = r.getShadowMap().renderList;
+                var needRecreate = true;
+                if (renderList.length == item.renderList.length) {
+                    var allMatch = true;
+                    for (var i = 0; i < item.renderList.length && needRecreate; i++) {
+                        allMatch = allMatch && (renderList[i].name === item.renderList[i]);
+                    }
+                    needRecreate = !allMatch;
+                }
+                if (needRecreate) {
+                    renderList.splice(0, renderList.length);
+                    for (var i = 0; i < item.renderList.length; i++) {
+                        renderList.push(realObjects[item.renderList[i]]);
+                    }
+                }
             }
         },
         material: {

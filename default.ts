@@ -8,9 +8,6 @@ module Rnb {
     // UNDONE action on objects is a hack for DIFF, should rethink that design
     //
 
-    // UNDONE: should position be "position : Vector3" (like Babylon) or have everything extend Vector3
-    // 
-
     export interface Vector3 {
         x: number;
         y: number;
@@ -51,9 +48,7 @@ module Rnb {
         vAng?: number;
         wAng?: number;
     }
-    export interface  Material {
-        type: string;
-        action?: string;
+    export interface  Material extends GraphElement {
         alpha?: number;
         backFaceCulling?: boolean;
         pointSize?: number;
@@ -89,13 +84,15 @@ module Rnb {
         reflectionFresnelParameters?: FresnelParameters;
         emissiveFresnelParameters?: FresnelParameters;
     }
-    export interface Element extends Vector3 {
+    export interface HasPosition {
+        position: Vector3;
+        relativeTo: string;
+    }
+    export interface GraphElement {
         type: string;
         action?: string;
     }
-    export interface Geometry extends Vector3 {
-        type: string;
-        action?: string;
+    export interface Geometry extends HasPosition, GraphElement {
         material?: string;
         scaling?: Vector3;
     }
@@ -116,35 +113,29 @@ module Rnb {
         maxHeight: number;
         url: string;
     }
-    export interface Light  {
-        type: string;
-        action?: string;
+    export interface Light extends GraphElement  {
         diffuse?: Color3;
         specular?: Color3;
         intensity?: number;
         range?: number;
     }
-    export interface PointLight extends Light {
-        position: Vector3;
+    export interface PointLight extends Light, HasPosition {
     }
     export interface HemisphericLight extends Light {
         direction: Vector3;
         groundColor?: Color3;
     }
-    export interface DirectionalLight extends Light {
-        position: Vector3;
+    export interface DirectionalLight extends Light, HasPosition {
         direction: Vector3;
     }
 
-    export interface ShadowGenerator {
-        type: string;
-        action?: string;
+    export interface ShadowGenerator extends GraphElement {
         useVarianceShadowMap?: boolean;
         usePoissonSampling?: boolean;
         light: string;
         renderList: Rnb.SceneGraphToValue<string[]> | string[];
     }
-    export interface Camera extends Vector3 {
+    export interface Camera extends HasPosition {
         type: string;
         action?: string;
         upVector?: Vector3;
@@ -184,18 +175,15 @@ module Rnb {
         angularSensibility?: number;
     }
 
-    export interface Composite {
-        type: string;
-        action?: string;
+    export interface Composite extends GraphElement {
         [key: string]: GraphElement | string;
     }
     export interface SceneGraph {
-        [key: string]: GraphElement | Composite;
+        [key: string]: GraphElement;
     }
     export interface SceneGraphToValue<T> {
         (graph : Rnb.SceneGraph) : T;
     }
-    export type GraphElement = Element | Material | Geometry | ShadowGenerator | Camera | Light;
 }
 
 // UNDONE: need to think about JSON objects vs. creation functions... 
@@ -210,6 +198,7 @@ module App {
             light1 : <Rnb.DirectionalLight>{
                 type: 'directionalLight',
                 position: { x: 0, y: 13, z: 0 },
+                relativeTo: "$origin",
                 direction: {x:0, y:-1, z:.1},
                 intensity: .7,
                 diffuse: {r:.9, g:.9, b:1},
@@ -217,6 +206,7 @@ module App {
             },
             light2 : <Rnb.DirectionalLight>{
                 type: 'directionalLight',
+                relativeTo: "$origin",
                 position: { x: cameraPos.x, y: cameraPos.y * 2, z: cameraPos.z * 1.2 },
                 direction: {
                     x:-cameraPos.x, 
@@ -237,7 +227,8 @@ module App {
     function flatGround(width : number, depth : number, material : string) : Rnb.Ground { 
         return {
             type: 'ground', 
-            x:0,y:0,z:0,
+            position: { x: 0, y: 0, z: 0 },
+            relativeTo: "$origin",
             width:width, 
             depth:depth, 
             segments:8, 
@@ -254,7 +245,8 @@ module App {
 
         return { 
             type: 'groundFromHeightMap', 
-            x:0,y:0,z:0,
+            position: { x: 0, y: 0, z: 0 },
+            relativeTo: "$origin",
             width:width, 
             depth:depth, 
             minHeight: minHeight,
@@ -287,11 +279,10 @@ module App {
         var sphereScale = Math.abs(Math.sin(time / 20)) * 3;
 
         return <Rnb.SceneGraph>{
-            camera1: {
+            camera1: <Rnb.FreeCamera>{
                 type: 'freeCamera',
-                x: 0, 
-                y: 2, 
-                z: -5,
+                position: { x: 0, y: 2, z: -5 },
+                relativeTo: "$origin",
                 target: {x:0, y:3, z:0},
                 attachControl: "renderCanvas"
             },
@@ -307,9 +298,12 @@ module App {
                 var name = 'vis('+index+')';
                 prev[name] = <Rnb.Box>{
                     type: 'box',
-                    x: index - arr.length / 2,
-                    y: 3 + (current / 4),
-                    z: 0,
+                    position: {
+                        x: index - arr.length / 2,
+                        y: 3 + (current / 4),
+                        z: 0
+                    },
+                    relativeTo: "$origin",
                     size: 1,
                     scaling: { x: .8, y: current / 2, z: .8 },
                     material: "material1"
@@ -319,9 +313,19 @@ module App {
 
             "vis(-1)" : <Rnb.Sphere>{
                 type: 'sphere',
-                x : 2, y: 3, z: 2,
+                position: { x: 2, y: 3, z: 2 },
+                relativeTo: "$origin",
                 diameter: 1,
                 scaling: {x:sphereScale, y:sphereScale, z:sphereScale},
+                segments: 12,
+                material: "material1"
+            },
+
+            "vis(-2)" : <Rnb.Sphere>{
+                type: 'sphere',
+                position: { x: 0, y: 0, z: 3 },
+                relativeTo: '$camera',
+                diameter: 1,
                 segments: 12,
                 material: "material1"
             },
@@ -343,6 +347,8 @@ interface ApplyHandler {
 interface HandlerBlock {
     [key:string] : ApplyHandler;
 }
+var globalCamera;
+
 (function() {
 
     // creation of new meshes can be expensive, to avoid hanging the UI thread, I limit
@@ -355,10 +361,27 @@ interface HandlerBlock {
     // all of these update handlers are pretty bogus. Once DIFF becomes smart enough, we should clearly only 
     // update the changed values.
     // 
-    function updatePosition(item : Rnb.Vector3, r) {
-        r.position.x = item.x;
-        r.position.y = item.y;
-        r.position.z = item.z;
+    function updatePosition(item : Rnb.HasPosition, r) {
+        // eventually "$origin" shouldn't be supported
+        //
+        var relativeTo = item.relativeTo || "$origin";
+        switch (relativeTo) {
+            case "$origin":
+                r.position.x = item.position.x;
+                r.position.y = item.position.y;
+                r.position.z = item.position.z;
+                break;
+            case "$camera":
+                var matrix : BABYLON.Matrix = globalCamera.getWorldMatrix();
+                var place = BABYLON.Vector3.TransformCoordinates(new BABYLON.Vector3(item.position.x, item.position.y, item.position.z), matrix);
+
+                r.position.x = place.x;
+                r.position.y = place.y;
+                r.position.z = place.z;
+                break;
+            default:
+                throw "not implemented yet";
+        }
     }
     function updateGeometryProps(item : Rnb.Geometry, includeExpensive : boolean, realObjects, r) {
         if (item.scaling) {
@@ -383,6 +406,7 @@ interface HandlerBlock {
             r.specular = new BABYLON.Color3(item.specular.r, item.specular.g, item.specular.b);
         }
     }
+    
     var handlers : HandlerBlock = {
         box: {
             create: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
@@ -471,7 +495,7 @@ interface HandlerBlock {
                 var item = <Rnb.PointLight>rawItem;
 
                 var r = realObjects[name];
-                updatePosition(item.position, r);
+                updatePosition(item, r);
                 updateLightProps(item, r);
             }
         },
@@ -480,7 +504,7 @@ interface HandlerBlock {
                 var item = <Rnb.DirectionalLight>rawItem;
 
                 var r = realObjects[name] = new BABYLON.DirectionalLight(name, new BABYLON.Vector3(item.direction.x, item.direction.y, item.direction.z), scene);
-                updatePosition(item.position, r);
+                updatePosition(item, r);
                 updateLightProps(item, r);
             },
             update: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
@@ -488,7 +512,7 @@ interface HandlerBlock {
 
                 var r = realObjects[name];
                 r.direction = new BABYLON.Vector3(item.direction.x, item.direction.y, item.direction.z)
-                updatePosition(item.position, r);
+                updatePosition(item, r);
                 updateLightProps(item, r);
             }
         },
@@ -542,7 +566,7 @@ interface HandlerBlock {
             create: function(rawItem: Rnb.GraphElement, name: string, dom, scene, realObjects) {
                 var item = <Rnb.FreeCamera>rawItem;
 
-                var r = realObjects[name] = new BABYLON.FreeCamera(name, new BABYLON.Vector3(item.x, item.y, item.z), scene);
+                var r = globalCamera = realObjects[name] = new BABYLON.FreeCamera(name, new BABYLON.Vector3(item.position.x, item.position.y, item.position.z), scene);
                 r.setTarget(new BABYLON.Vector3(item.target.x, item.target.y, item.target.z));
                 if (item.attachControl) {
                     r.attachControl(document.getElementById(item.attachControl), true);
@@ -569,7 +593,7 @@ interface HandlerBlock {
                     var n = <Rnb.FreeCamera>newItem;
                     var o = <Rnb.FreeCamera>oldItem;
 
-                    if (n.x !== o.x || n.y !== o.y || n.z !== o.z) {
+                    if (n.position.x !== o.position.x || n.position.y !== o.position.y || n.position.z !== o.position.z) {
                         newItem.action = "update";
                     }
                     // UNDONE: target diff
@@ -756,10 +780,9 @@ interface HandlerBlock {
 
         updateFrame();
 
-        setInterval(updateFrame, 32);
-
         engine.runRenderLoop(function () {
-          scene.render();
+            updateFrame();
+            scene.render();
         });
 
         window.addEventListener("resize", function () {

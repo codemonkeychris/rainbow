@@ -1,11 +1,6 @@
 ///<reference path='Babylon.js-2.0/references/poly2tri.d.ts' />
 ///<reference path='Babylon.js-2.0/references/waa.d.ts' />
 ///<reference path='Babylon.js-2.0/babylon.2.0.d.ts' />
-// beginings of TypeScript definition for OM
-//
-var Rnb;
-(function (Rnb) {
-})(Rnb || (Rnb = {}));
 // UNDONE: need to think about JSON objects vs. creation functions... 
 //
 var App;
@@ -19,6 +14,7 @@ var App;
             light1: {
                 type: 'directionalLight',
                 position: { x: 0, y: 13, z: 0 },
+                relativeTo: "$origin",
                 direction: { x: 0, y: -1, z: .1 },
                 intensity: .7,
                 diffuse: { r: .9, g: .9, b: 1 },
@@ -26,6 +22,7 @@ var App;
             },
             light2: {
                 type: 'directionalLight',
+                relativeTo: "$origin",
                 position: { x: cameraPos.x, y: cameraPos.y * 2, z: cameraPos.z * 1.2 },
                 direction: {
                     x: -cameraPos.x,
@@ -46,9 +43,8 @@ var App;
     function flatGround(width, depth, material) {
         return {
             type: 'ground',
-            x: 0,
-            y: 0,
-            z: 0,
+            position: { x: 0, y: 0, z: 0 },
+            relativeTo: "$origin",
             width: width,
             depth: depth,
             segments: 8,
@@ -58,9 +54,8 @@ var App;
     function groundFromHeightMap(width, depth, minHeight, maxHeight, heightMapUrl, material) {
         return {
             type: 'groundFromHeightMap',
-            x: 0,
-            y: 0,
-            z: 0,
+            position: { x: 0, y: 0, z: 0 },
+            relativeTo: "$origin",
             width: width,
             depth: depth,
             minHeight: minHeight,
@@ -94,9 +89,8 @@ var App;
         return {
             camera1: {
                 type: 'freeCamera',
-                x: 0,
-                y: 2,
-                z: -5,
+                position: { x: 0, y: 2, z: -5 },
+                relativeTo: "$origin",
                 target: { x: 0, y: 3, z: 0 },
                 attachControl: "renderCanvas"
             },
@@ -112,9 +106,12 @@ var App;
                 var name = 'vis(' + index + ')';
                 prev[name] = {
                     type: 'box',
-                    x: index - arr.length / 2,
-                    y: 3 + (current / 4),
-                    z: 0,
+                    position: {
+                        x: index - arr.length / 2,
+                        y: 3 + (current / 4),
+                        z: 0
+                    },
+                    relativeTo: "$origin",
                     size: 1,
                     scaling: { x: .8, y: current / 2, z: .8 },
                     material: "material1"
@@ -123,11 +120,18 @@ var App;
             }, { type: 'composite' }),
             "vis(-1)": {
                 type: 'sphere',
-                x: 2,
-                y: 3,
-                z: 2,
+                position: { x: 2, y: 3, z: 2 },
+                relativeTo: "$origin",
                 diameter: 1,
                 scaling: { x: sphereScale, y: sphereScale, z: sphereScale },
+                segments: 12,
+                material: "material1"
+            },
+            "vis(-2)": {
+                type: 'sphere',
+                position: { x: 0, y: 0, z: 3 },
+                relativeTo: '$camera',
+                diameter: 1,
                 segments: 12,
                 material: "material1"
             },
@@ -138,6 +142,7 @@ var App;
     App.render = render;
     ;
 })(App || (App = {}));
+var globalCamera;
 (function () {
     // creation of new meshes can be expensive, to avoid hanging the UI thread, I limit
     // the number of expensive operations per frame. The rest will be picked up on the 
@@ -148,9 +153,25 @@ var App;
     // update the changed values.
     // 
     function updatePosition(item, r) {
-        r.position.x = item.x;
-        r.position.y = item.y;
-        r.position.z = item.z;
+        // eventually "$origin" shouldn't be supported
+        //
+        var relativeTo = item.relativeTo || "$origin";
+        switch (relativeTo) {
+            case "$origin":
+                r.position.x = item.position.x;
+                r.position.y = item.position.y;
+                r.position.z = item.position.z;
+                break;
+            case "$camera":
+                var matrix = globalCamera.getWorldMatrix();
+                var place = BABYLON.Vector3.TransformCoordinates(new BABYLON.Vector3(item.position.x, item.position.y, item.position.z), matrix);
+                r.position.x = place.x;
+                r.position.y = place.y;
+                r.position.z = place.z;
+                break;
+            default:
+                throw "not implemented yet";
+        }
     }
     function updateGeometryProps(item, includeExpensive, realObjects, r) {
         if (item.scaling) {
@@ -248,7 +269,7 @@ var App;
             update: function (rawItem, name, dom, scene, realObjects) {
                 var item = rawItem;
                 var r = realObjects[name];
-                updatePosition(item.position, r);
+                updatePosition(item, r);
                 updateLightProps(item, r);
             }
         },
@@ -256,14 +277,14 @@ var App;
             create: function (rawItem, name, dom, scene, realObjects) {
                 var item = rawItem;
                 var r = realObjects[name] = new BABYLON.DirectionalLight(name, new BABYLON.Vector3(item.direction.x, item.direction.y, item.direction.z), scene);
-                updatePosition(item.position, r);
+                updatePosition(item, r);
                 updateLightProps(item, r);
             },
             update: function (rawItem, name, dom, scene, realObjects) {
                 var item = rawItem;
                 var r = realObjects[name];
                 r.direction = new BABYLON.Vector3(item.direction.x, item.direction.y, item.direction.z);
-                updatePosition(item.position, r);
+                updatePosition(item, r);
                 updateLightProps(item, r);
             }
         },
@@ -311,7 +332,7 @@ var App;
         freeCamera: {
             create: function (rawItem, name, dom, scene, realObjects) {
                 var item = rawItem;
-                var r = realObjects[name] = new BABYLON.FreeCamera(name, new BABYLON.Vector3(item.x, item.y, item.z), scene);
+                var r = globalCamera = realObjects[name] = new BABYLON.FreeCamera(name, new BABYLON.Vector3(item.position.x, item.position.y, item.position.z), scene);
                 r.setTarget(new BABYLON.Vector3(item.target.x, item.target.y, item.target.z));
                 if (item.attachControl) {
                     r.attachControl(document.getElementById(item.attachControl), true);
@@ -335,7 +356,7 @@ var App;
                 else {
                     var n = newItem;
                     var o = oldItem;
-                    if (n.x !== o.x || n.y !== o.y || n.z !== o.z) {
+                    if (n.position.x !== o.position.x || n.position.y !== o.position.y || n.position.z !== o.position.z) {
                         newItem.action = "update";
                     }
                     // UNDONE: target diff
@@ -505,8 +526,8 @@ var App;
             document.getElementById("domOutput").innerHTML = JSON.stringify(lastDom, undefined, 2);
         };
         updateFrame();
-        setInterval(updateFrame, 32);
         engine.runRenderLoop(function () {
+            updateFrame();
             scene.render();
         });
         window.addEventListener("resize", function () {

@@ -144,6 +144,37 @@ var App;
     // next frame
     //
     var MAX_UPDATES = 20;
+    // all of these update handlers are pretty bogus. Once DIFF becomes smart enough, we should clearly only 
+    // update the changed values.
+    // 
+    function updatePosition(item, r) {
+        r.position.x = item.x;
+        r.position.y = item.y;
+        r.position.z = item.z;
+    }
+    function updateGeometryProps(item, includeExpensive, realObjects, r) {
+        if (item.scaling) {
+            r.scaling.x = item.scaling.x;
+            r.scaling.y = item.scaling.y;
+            r.scaling.z = item.scaling.z;
+        }
+        updatePosition(item, r);
+        if (includeExpensive) {
+            r.receiveShadows = true;
+            if (item.material) {
+                r.material = realObjects[item.material];
+            }
+        }
+    }
+    function updateLightProps(item, r) {
+        r.intensity = item.intensity || 1;
+        if (item.diffuse) {
+            r.diffuse = new BABYLON.Color3(item.diffuse.r, item.diffuse.g, item.diffuse.b);
+        }
+        if (item.specular) {
+            r.specular = new BABYLON.Color3(item.specular.r, item.specular.g, item.specular.b);
+        }
+    }
     var handlers = {
         box: {
             create: function (rawItem, name, dom, scene, realObjects) {
@@ -409,37 +440,6 @@ var App;
         }
     }
     ;
-    // all of these update handlers are pretty bogus. Once DIFF becomes smart enough, we should clearly only 
-    // update the changed values.
-    // 
-    function updatePosition(item, r) {
-        r.position.x = item.x;
-        r.position.y = item.y;
-        r.position.z = item.z;
-    }
-    function updateGeometryProps(item, includeExpensive, realObjects, r) {
-        if (item.scaling) {
-            r.scaling.x = item.scaling.x;
-            r.scaling.y = item.scaling.y;
-            r.scaling.z = item.scaling.z;
-        }
-        updatePosition(item, r);
-        if (includeExpensive) {
-            r.receiveShadows = true;
-            if (item.material) {
-                r.material = realObjects[item.material];
-            }
-        }
-    }
-    function updateLightProps(item, r) {
-        r.intensity = item.intensity || 1;
-        if (item.diffuse) {
-            r.diffuse = new BABYLON.Color3(item.diffuse.r, item.diffuse.g, item.diffuse.b);
-        }
-        if (item.specular) {
-            r.specular = new BABYLON.Color3(item.specular.r, item.specular.g, item.specular.b);
-        }
-    }
     // Poorly factored and horribly inneficient. This started as 20 lines, and kept growing. 
     // Desparately needs refactoring and some design work
     //
@@ -497,24 +497,15 @@ var App;
         updateButton.addEventListener("click", function () {
             model = JSON.parse(modelInput.value);
         });
-        var createScene = function (t) {
-            var scene = new BABYLON.Scene(engine);
-            // UNDONE: how to do this in the new model?
-            // This attaches the camera to the canvas
-            // camera.attachControl(canvas, true);
-            lastDom = diff(lastDom, App.render(0, model));
+        var frameCount = 0;
+        var scene = new BABYLON.Scene(engine);
+        var updateFrame = function () {
+            lastDom = diff(lastDom, App.render(frameCount++, model));
             lastDom = applyActions(lastDom, scene, realObjects);
             document.getElementById("domOutput").innerHTML = JSON.stringify(lastDom, undefined, 2);
-            return scene;
         };
-        var t = 0;
-        var scene = createScene(t);
-        setInterval(function () {
-            t++;
-            lastDom = diff(lastDom, App.render(t, model));
-            lastDom = applyActions(lastDom, scene, realObjects);
-            document.getElementById("domOutput").innerHTML = JSON.stringify(lastDom, undefined, 2);
-        }, 32);
+        updateFrame();
+        setInterval(updateFrame, 32);
         engine.runRenderLoop(function () {
             scene.render();
         });

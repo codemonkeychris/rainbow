@@ -1,133 +1,132 @@
 ///<reference path='Babylon.js-2.0/references/poly2tri.d.ts' />
 ///<reference path='Babylon.js-2.0/references/waa.d.ts' />
 ///<reference path='Babylon.js-2.0/babylon.2.0.d.ts' />
-// UNDONE: need to think about JSON objects vs. creation functions...
+// UNDONE: need to think about JSON objects vs. creation functions... 
 //
-/**
-* Returns a two light system, one light at cameraPos, the other a top down ambient light
-*/
-function basicLights(cameraPos) {
-    return {
-        type: 'composite',
-        light1: {
-            type: 'directionalLight',
-            x: 0,
-            y: 13,
-            z: 0,
-            direction: { x: 0, y: -1, z: .1 },
-            intensity: .7,
-            diffuse: { r: .9, g: .9, b: 1 },
-            specular: { r: 1, g: 1, b: 1 }
-        },
-        light2: {
-            type: 'directionalLight',
-            x: cameraPos.x,
-            y: cameraPos.y * 2,
-            z: cameraPos.z * 1.2,
-            direction: {
-                x: -cameraPos.x,
-                y: -cameraPos.y,
-                z: -cameraPos.z
-            },
-            diffuse: { r: .5, g: .5, b: .5 },
-            specular: { r: 1, g: 1, b: 1 }
-        }
-    };
-}
-function diffuse(url, diffuseProps) {
-    diffuseProps = diffuseProps || {};
-    diffuseProps.type = 'texture';
-    diffuseProps.url = url;
-    return { type: 'material', diffuseTexture: diffuseProps };
-}
-function shadowFor(lightName, renderList) {
-    return { type: 'shadowGenerator', light: lightName, renderList: renderList };
-}
-function flatGround(width, depth, material) {
-    return {
-        type: 'ground',
-        width: width,
-        depth: depth,
-        segments: 8,
-        material: material
-    };
-}
-function groundFromHeightMap(width, depth, minHeight, maxHeight, heightMapUrl, material) {
-    return {
-        type: 'groundFromHeightMap',
-        width: width,
-        depth: depth,
-        minHeight: minHeight,
-        maxHeight: maxHeight,
-        segments: 8,
-        url: heightMapUrl,
-        material: material
-    };
-}
-
-/**
-* Returns a function which will seach the tree for any objects with a name matching
-* pattern.
-*
-* @param {string} pattern The string pattern to search names for, for now it is a simple "indexOf" matching
-*
-* @return {function(o : any) => string[]} The circumference of the circle.
-*/
-function select(pattern) {
-    return function (x) {
-        return Object.keys(x).filter(function (i) {
-            return i.indexOf(pattern) != -1;
-        });
-    };
-}
-
-function render(time, model) {
-    // UNDONE: "ig*" is ignored... design question - if this was an array, it would look
-    // better but then the definition of "name/id" on other elements would be more ugly...
-    //
-    var cameraX = (Math.sin(time / 40) * 10);
-    var cameraY = 5;
-    var cameraZ = (Math.sin((time + 20) / 40) * 10);
-
-    return {
-        camera1: {
-            type: 'freeCamera',
-            x: cameraX,
-            y: cameraY,
-            z: cameraZ,
-            target: { x: 0, y: 3, z: 0 }
-        },
-        ig: basicLights({ x: cameraX, y: cameraY, z: cameraZ }),
-        material1: diffuse('seamless_stone_texture.jpg'),
-        groundMaterial: diffuse('ground.jpg', { uScale: 4, vScale: 4, specularColor: { r: 0, g: 0, b: 0 } }),
-        ground1: groundFromHeightMap(50, 50, 0, 3, "heightMap.png", "groundMaterial"),
-        ig2: model.reduce(function (prev, current, index, arr) {
-            var name = 'vis(' + index + ')';
-            prev[name] = {
-                type: 'box',
-                x: index - arr.length / 2,
-                y: 3 + (current / 4),
+var App;
+(function (App) {
+    /**
+     * Returns a two light system, one light at cameraPos, the other a top down ambient light
+    */
+    function basicLights(cameraPos) {
+        return {
+            type: 'composite',
+            light1: {
+                type: 'directionalLight',
+                x: 0,
+                y: 13,
                 z: 0,
-                size: 1,
-                scaling: { x: .8, y: current / 2, z: .8 },
-                material: "material1"
-            };
-            return prev;
-        }, { type: 'composite' }),
-        shadow1: shadowFor('light2', select("vis(")),
-        shadow2: shadowFor('light1', select("vis("))
-    };
-}
-;
-
+                direction: { x: 0, y: -1, z: .1 },
+                intensity: .7,
+                diffuse: { r: .9, g: .9, b: 1 },
+                specular: { r: 1, g: 1, b: 1 }
+            },
+            light2: {
+                type: 'directionalLight',
+                x: cameraPos.x,
+                y: cameraPos.y * 2,
+                z: cameraPos.z * 1.2,
+                direction: {
+                    x: -cameraPos.x,
+                    y: -cameraPos.y,
+                    z: -cameraPos.z
+                },
+                diffuse: { r: .5, g: .5, b: .5 },
+                specular: { r: 1, g: 1, b: 1 }
+            }
+        };
+    }
+    function diffuse(url, diffuseProps) {
+        diffuseProps = diffuseProps || {};
+        diffuseProps.type = 'texture';
+        diffuseProps.url = url;
+        return { type: 'material', diffuseTexture: diffuseProps };
+    }
+    function shadowFor(lightName, renderList) {
+        return { type: 'shadowGenerator', light: lightName, renderList: renderList };
+    }
+    function flatGround(width, depth, material) {
+        return {
+            type: 'ground',
+            width: width,
+            depth: depth,
+            segments: 8,
+            material: material
+        };
+    }
+    function groundFromHeightMap(width, depth, minHeight, maxHeight, heightMapUrl, material) {
+        return {
+            type: 'groundFromHeightMap',
+            width: width,
+            depth: depth,
+            minHeight: minHeight,
+            maxHeight: maxHeight,
+            segments: 8,
+            url: heightMapUrl,
+            material: material
+        };
+    }
+    /**
+     * Returns a function which will seach the tree for any objects with a name matching
+     * pattern.
+     *
+     * @param {string} pattern The string pattern to search names for, for now it is a simple "indexOf" matching
+     *
+     * @return {function(o : any) => string[]} The circumference of the circle.
+     */
+    function select(pattern) {
+        return function (x) {
+            return Object.keys(x).filter(function (i) {
+                return i.indexOf(pattern) != -1;
+            });
+        };
+    }
+    function render(time, model) {
+        // UNDONE: "ig*" is ignored... design question - if this was an array, it would look 
+        // better but then the definition of "name/id" on other elements would be more ugly... 
+        //
+        var cameraX = (Math.sin(time / 40) * 10);
+        var cameraY = 5;
+        var cameraZ = (Math.sin((time + 20) / 40) * 10);
+        return {
+            camera1: {
+                type: 'freeCamera',
+                x: cameraX,
+                y: cameraY,
+                z: cameraZ,
+                target: { x: 0, y: 3, z: 0 }
+            },
+            ig: basicLights({ x: cameraX, y: cameraY, z: cameraZ }),
+            material1: diffuse('seamless_stone_texture.jpg'),
+            groundMaterial: diffuse('ground.jpg', { uScale: 4, vScale: 4, specularColor: { r: 0, g: 0, b: 0 } }),
+            ground1: groundFromHeightMap(50, 50, 0, 3, "heightMap.png", "groundMaterial"),
+            ig2: model.reduce(function (prev, current, index, arr) {
+                var name = 'vis(' + index + ')';
+                prev[name] = {
+                    type: 'box',
+                    x: index - arr.length / 2,
+                    y: 3 + (current / 4),
+                    z: 0,
+                    size: 1,
+                    scaling: { x: .8, y: current / 2, z: .8 },
+                    material: "material1"
+                };
+                return prev;
+            }, { type: 'composite' }),
+            shadow1: shadowFor('light2', select("vis(")),
+            shadow2: shadowFor('light1', select("vis("))
+        };
+    }
+    App.render = render;
+    ;
+})(App || (App = {}));
 (function () {
     // creation of new meshes can be expensive, to avoid hanging the UI thread, I limit
-    // the number of expensive operations per frame. The rest will be picked up on the
+    // the number of expensive operations per frame. The rest will be picked up on the 
     // next frame
     //
     var MAX_UPDATES = 20;
-
-    // JS records don't compose well in functional contexts, you can't merged function records easily (a+b),
+    // JS records don't compose well in functional contexts, you can't merged function records easily (a+b), 
     // so I opt'd for a simple {type:'composite'} which will be flattened before processing and completely
     // erased.
     //
@@ -144,13 +143,13 @@ function render(time, model) {
                         result[compKeys[i2]] = value[compKeys[i2]];
                     }
                 }
-            } else {
+            }
+            else {
                 result[name] = scene[name];
             }
         }
         return result;
     }
-
     // functions in the graph allow for lazy evaluation and graph queries, the common
     // one I hit was the desire to get a list of all XXX elements to create shadows
     //
@@ -172,7 +171,6 @@ function render(time, model) {
         }
         return result;
     }
-
     // Incredibly niave implementation of DIFF... really this should just be replaced
     // by React, i need to see how hard that would be with my own custom OM as the
     // backend/DOM
@@ -185,9 +183,9 @@ function render(time, model) {
                 newScene[keys[i]].action = "create";
             }
             return newScene;
-        } else {
+        }
+        else {
             var result = {};
-
             var masterKeys = Object.keys(master);
             var keys = Object.keys(newScene);
             for (var i = 0; i < keys.length; i++) {
@@ -195,7 +193,8 @@ function render(time, model) {
                 if (!master[name]) {
                     result[name] = newScene[name];
                     result[name].action = "create";
-                } else {
+                }
+                else {
                     result[name] = newScene[name];
                     result[name].action = "update";
                 }
@@ -211,21 +210,17 @@ function render(time, model) {
         }
     }
     ;
-
-    // Poorly factored and horribly inneficient. This started as 20 lines, and kept growing.
+    // Poorly factored and horribly inneficient. This started as 20 lines, and kept growing. 
     // Desparately needs refactoring and some design work
     //
     function applyActions(dom, scene, realObjects) {
         var keys = Object.keys(dom);
         var result = {};
-
         var updateCount = 0;
-
         for (var i = 0; i < keys.length; i++) {
             var name = keys[i];
             var item = dom[name];
-
-            // hack, hack, hack...
+            // hack, hack, hack... 
             //
             if (updateCount > MAX_UPDATES) {
                 if (item.action == "update" || item.action == "delete") {
@@ -233,7 +228,6 @@ function render(time, model) {
                 }
                 continue;
             }
-
             switch (item.action) {
                 case "create":
                     updateCount++;
@@ -386,11 +380,9 @@ function render(time, model) {
                     break;
             }
         }
-
         return result;
     }
     ;
-
     // Simplistic startup, need to think about the app bootstrap and actual app model.
     // Lots of questions - for example should we embrace React for the HTML UI and just go all in?
     //
@@ -398,7 +390,6 @@ function render(time, model) {
         var canvas = document.getElementById("renderCanvas");
         var modelInput = (document.getElementById("modelInput"));
         var updateButton = (document.getElementById("updateButton"));
-
         var engine = new BABYLON.Engine(canvas, true);
         var lastDom = null;
         var realObjects = {};
@@ -406,33 +397,27 @@ function render(time, model) {
         updateButton.addEventListener("click", function () {
             model = JSON.parse(modelInput.value);
         });
-
         var createScene = function (t) {
             var scene = new BABYLON.Scene(engine);
-
             // UNDONE: how to do this in the new model?
             // This attaches the camera to the canvas
             // camera.attachControl(canvas, true);
-            lastDom = diff(lastDom, render(0, model));
+            lastDom = diff(lastDom, App.render(0, model));
             lastDom = applyActions(lastDom, scene, realObjects);
             document.getElementById("domOutput").innerHTML = JSON.stringify(lastDom, undefined, 2);
             return scene;
         };
-
         var t = 0;
         var scene = createScene(t);
-
         setInterval(function () {
             t++;
-            lastDom = diff(lastDom, render(t, model));
+            lastDom = diff(lastDom, App.render(t, model));
             lastDom = applyActions(lastDom, scene, realObjects);
             document.getElementById("domOutput").innerHTML = JSON.stringify(lastDom, undefined, 2);
         }, 32);
-
         engine.runRenderLoop(function () {
             scene.render();
         });
-
         window.addEventListener("resize", function () {
             engine.resize();
         });

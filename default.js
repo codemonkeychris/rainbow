@@ -14,7 +14,7 @@ var App;
             light1: {
                 type: 'directionalLight',
                 position: { x: 0, y: 13, z: 0 },
-                relativeTo: "$origin",
+                relativeTo: "ground1",
                 direction: { x: 0, y: -1, z: .1 },
                 intensity: .7,
                 diffuse: { r: .9, g: .9, b: 1 },
@@ -22,7 +22,7 @@ var App;
             },
             light2: {
                 type: 'directionalLight',
-                relativeTo: "$origin",
+                relativeTo: "ground1",
                 position: { x: cameraPos.x, y: cameraPos.y * 2, z: cameraPos.z * 1.2 },
                 direction: {
                     x: -cameraPos.x,
@@ -85,13 +85,13 @@ var App;
         var cameraX = (Math.sin(time / 40) * 10);
         var cameraY = 5;
         var cameraZ = (Math.sin((time + 20) / 40) * 10);
-        var sphereScale = Math.abs(Math.sin(time / 20)) * 3;
+        var sphereScale = Math.abs(Math.sin(time / 20)) * 2;
         return {
             camera1: {
                 type: 'freeCamera',
-                position: { x: 0, y: 2, z: -5 },
+                position: { x: 0, y: 7, z: -7 },
                 relativeTo: "$origin",
-                target: { x: 0, y: 3, z: 0 },
+                target: { x: 0, y: 4, z: 0 },
                 attachControl: "renderCanvas"
             },
             ig: basicLights({ x: cameraX, y: cameraY, z: cameraZ }),
@@ -111,7 +111,7 @@ var App;
                         y: 3 + (current / 4),
                         z: 0
                     },
-                    relativeTo: "$origin",
+                    relativeTo: "ground1",
                     size: 1,
                     scaling: { x: .8, y: current / 2, z: .8 },
                     material: "material1"
@@ -120,8 +120,8 @@ var App;
             }, { type: 'composite' }),
             "vis(-1)": {
                 type: 'sphere',
-                position: { x: 2, y: 3, z: 2 },
-                relativeTo: "$origin",
+                position: { x: 0, y: 2, z: 0 },
+                relativeTo: "vis(0)",
                 diameter: 1,
                 scaling: { x: sphereScale, y: sphereScale, z: sphereScale },
                 segments: 12,
@@ -152,7 +152,7 @@ var globalCamera;
     // all of these update handlers are pretty bogus. Once DIFF becomes smart enough, we should clearly only 
     // update the changed values.
     // 
-    function updatePosition(item, r) {
+    function updatePosition(item, r, realObjects) {
         // eventually "$origin" shouldn't be supported
         //
         var relativeTo = item.relativeTo || "$origin";
@@ -170,7 +170,21 @@ var globalCamera;
                 r.position.z = place.z;
                 break;
             default:
-                throw "not implemented yet";
+                var relative = realObjects[relativeTo];
+                if (relative) {
+                    // UNDONE: right now this is relative to the center of the object, we really
+                    // need proper pins on any mesh point... also, consider rotation, scale, etc... 
+                    //
+                    r.position.x = relative.position.x + item.position.x;
+                    r.position.y = relative.position.y + item.position.y;
+                    r.position.z = relative.position.z + item.position.z;
+                }
+                else {
+                    r.position.x = item.position.x;
+                    r.position.y = item.position.y;
+                    r.position.z = item.position.z;
+                }
+                break;
         }
     }
     function updateGeometryProps(item, includeExpensive, realObjects, r) {
@@ -179,7 +193,7 @@ var globalCamera;
             r.scaling.y = item.scaling.y;
             r.scaling.z = item.scaling.z;
         }
-        updatePosition(item, r);
+        updatePosition(item, r, realObjects);
         if (includeExpensive) {
             r.receiveShadows = true;
             if (item.material) {
@@ -269,7 +283,7 @@ var globalCamera;
             update: function (rawItem, name, dom, scene, realObjects) {
                 var item = rawItem;
                 var r = realObjects[name];
-                updatePosition(item, r);
+                updatePosition(item, r, realObjects);
                 updateLightProps(item, r);
             }
         },
@@ -277,14 +291,14 @@ var globalCamera;
             create: function (rawItem, name, dom, scene, realObjects) {
                 var item = rawItem;
                 var r = realObjects[name] = new BABYLON.DirectionalLight(name, new BABYLON.Vector3(item.direction.x, item.direction.y, item.direction.z), scene);
-                updatePosition(item, r);
+                updatePosition(item, r, realObjects);
                 updateLightProps(item, r);
             },
             update: function (rawItem, name, dom, scene, realObjects) {
                 var item = rawItem;
                 var r = realObjects[name];
                 r.direction = new BABYLON.Vector3(item.direction.x, item.direction.y, item.direction.z);
-                updatePosition(item, r);
+                updatePosition(item, r, realObjects);
                 updateLightProps(item, r);
             }
         },
@@ -342,7 +356,7 @@ var globalCamera;
                 var item = rawItem;
                 var r = realObjects[name];
                 r.setTarget(new BABYLON.Vector3(item.target.x, item.target.y, item.target.z));
-                updatePosition(item, r);
+                updatePosition(item, r, realObjects);
             },
             diff: function (newItem, oldItem) {
                 if (!oldItem) {

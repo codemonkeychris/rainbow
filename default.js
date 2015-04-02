@@ -546,7 +546,18 @@ var globalCamera;
         var realObjects = {};
         var model = JSON.parse(modelInput.value);
         updateButton.addEventListener("click", function () {
-            model = JSON.parse(modelInput.value);
+            try {
+                model = JSON.parse(modelInput.value);
+            }
+            catch (e) {
+            }
+        });
+        modelInput.addEventListener("keyup", function () {
+            try {
+                model = JSON.parse(modelInput.value);
+            }
+            catch (e) {
+            }
         });
         var frameCount = 0;
         var scene = new BABYLON.Scene(engine);

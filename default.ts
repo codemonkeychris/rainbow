@@ -1,6 +1,7 @@
 ///<reference path='Babylon.js-2.0/references/poly2tri.d.ts' />
 ///<reference path='Babylon.js-2.0/references/waa.d.ts' />
 ///<reference path='Babylon.js-2.0/babylon.2.0.d.ts' />
+var HOLO_ALPHA = .6;
 
 // beginings of TypeScript definition for OM
 //
@@ -218,8 +219,59 @@ module App {
             }
         };
     }
+    function hud(name: string) {
+        var rec = {
+            type: 'composite'
+        };
+        var yOffset = -1;
+        rec[name + '-mat1'] = { type: 'material', diffuseColor : { r:.2, g:0.2, b:1}, alpha: HOLO_ALPHA };
+        rec[name + "-hud1"] = {
+            type: 'sphere',
+            position: { x: -1, y: yOffset, z: 3 },
+            relativeTo: '$camera',
+            diameter: .4,
+            segments: 12,
+            material: name + '-mat1'
+        };
+        rec[name + "-hud2"] = {
+            type: 'sphere',
+            position: { x: -.5, y: yOffset, z: 3 },
+            relativeTo: '$camera',
+            diameter: .4,
+            segments: 12,
+            material: name + '-mat1'
+        };
+        rec[name + "-hud3"] = {
+            type: 'sphere',
+            position: { x: 0, y: yOffset, z: 3 },
+            relativeTo: '$camera',
+            diameter: .4,
+            segments: 12,
+            material: name + '-mat1'
+        };
+        rec[name + "-hud4"] = {
+            type: 'sphere',
+            position: { x: .5, y: yOffset, z: 3 },
+            relativeTo: '$camera',
+            diameter: .4,
+            segments: 12,
+            material: name + '-mat1'
+        };
+        rec[name + "-hud5"] = {
+            type: 'sphere',
+            position: { x: 1, y: yOffset, z: 3 },
+            relativeTo: '$camera',
+            diameter: .4,
+            segments: 12,
+            material: name + '-mat1'
+        };
+        return rec;
+    }    
     function diffuse(url : string) : Rnb.StandardMaterial { 
         return { type: 'material', diffuseTexture: { type: 'texture', url: url } };
+    }
+    function holo_diffuse(url : string) : Rnb.StandardMaterial { 
+        return { type: 'material', diffuseTexture: { type: 'texture', url: url }, alpha: HOLO_ALPHA };
     }
     function shadowFor(lightName : string, renderList : Rnb.SceneGraphToValue<string[]> | string[]) : Rnb.ShadowGenerator { 
         return { type: 'shadowGenerator', light: lightName, renderList: renderList }; 
@@ -256,6 +308,59 @@ module App {
             material: material 
         };
     }
+    function table(name : string, position : Rnb.Vector3, relativeTo: string) {
+        var rec = {
+            type: 'composite'
+        };
+        var width = 16;
+        var depth = 8;
+        var legHeight = 4;
+        var legTopSize = 1;
+        var topThickness = .2;
+
+        rec[name + '-mat1'] = diffuse('wood.jpg'),
+        rec[name + '-v-top'] = <Rnb.Box>{
+            type: 'box',
+            position: {x:position.x, y:position.y + legHeight, z:position.z},
+            relativeTo: relativeTo,
+            size: 1,
+            scaling: { x: width, y: topThickness, z: depth },
+            material: name + '-mat1'
+        };
+        rec[name + '-v-leftfront'] = <Rnb.Box>{
+            type: 'box',
+            position: {x:position.x-(width/2)+(legTopSize/2), y:position.y + (legHeight/2) - (topThickness/2), z:position.z - (depth/2) + (legTopSize/2)},
+            relativeTo: relativeTo,
+            size: 1,
+            scaling: { x: legTopSize, y: legHeight, z: legTopSize },
+            material: name + '-mat1'
+        };
+        rec[name + '-v-rightfront'] = <Rnb.Box>{
+            type: 'box',
+            position: {x:position.x+(width/2)-(legTopSize/2), y:position.y + (legHeight/2) - (topThickness/2), z:position.z - (depth/2) + (legTopSize/2)},
+            relativeTo: relativeTo,
+            size: 1,
+            scaling: { x: legTopSize, y: legHeight, z: legTopSize },
+            material: name + '-mat1'
+        };
+        rec[name + '-v-leftback'] = <Rnb.Box>{
+            type: 'box',
+            position: {x:position.x-(width/2)+(legTopSize/2), y:position.y + (legHeight/2) - (topThickness/2), z:position.z + (depth/2) - (legTopSize/2)},
+            relativeTo: relativeTo,
+            size: 1,
+            scaling: { x: legTopSize, y: legHeight, z: legTopSize },
+            material: name + '-mat1'
+        };
+        rec[name + '-v-rightback'] = <Rnb.Box>{
+            type: 'box',
+            position: {x:position.x+(width/2)-(legTopSize/2), y:position.y + (legHeight/2) - (topThickness/2), z:position.z + (depth/2) - (legTopSize/2)},
+            relativeTo: relativeTo,
+            size: 1,
+            scaling: { x: legTopSize, y: legHeight, z: legTopSize },
+            material: name + '-mat1'
+        };
+        return rec;        
+    }
     /**
      * Returns a function which will seach the tree for any objects with a name matching
      * pattern.
@@ -281,29 +386,31 @@ module App {
         return <Rnb.SceneGraph>{
             camera1: <Rnb.FreeCamera>{
                 type: 'freeCamera',
-                position: { x: 0, y: 7, z: -7 },
+                position: { x: 0, y: 10, z: -17 },
                 relativeTo: "$origin",
-                target: {x:0, y:4, z:0},
+                target: {x:0, y:5, z:0},
                 attachControl: "renderCanvas"
             },
             ig: basicLights({x: cameraX, y: cameraY, z: cameraZ}),
-            material1 : diffuse('seamless_stone_texture.jpg'),
+            material1 : holo_diffuse('seamless_stone_texture.jpg'),
+            solid_material : diffuse('seamless_stone_texture.jpg'),
             groundMaterial: <Rnb.Material>{
                 type: 'material',
                 specularColor: { r: 0, g: 0, b: 0 },
                 diffuseTexture: <Rnb.Texture>{ type: 'texture', url: 'ground.jpg', uScale: 4, vScale: 4 }
             },
             ground1 : groundFromHeightMap(50, 50, 0, 3, "heightMap.png", "groundMaterial"),
+            ig4: table('table1', {x:0,y:0,z:0}, 'ground1'),
             ig2: model.reduce(function (prev, current, index, arr) {
                 var name = 'vis('+index+')';
                 prev[name] = <Rnb.Box>{
                     type: 'box',
                     position: {
                         x: index - arr.length / 2,
-                        y: 3 + (current / 4),
+                        y: (current / 4),
                         z: 0
                     },
-                    relativeTo: "ground1",
+                    relativeTo: "table1-v-top",
                     size: 1,
                     scaling: { x: .8, y: current / 2, z: .8 },
                     material: "material1"
@@ -321,17 +428,10 @@ module App {
                 material: "material1"
             },
 
-            "vis(-2)" : <Rnb.Sphere>{
-                type: 'sphere',
-                position: { x: .5, y: .5, z: 3 },
-                relativeTo: '$camera',
-                diameter: .4,
-                segments: 12,
-                material: "material1"
-            },
+            ig3: hud('hud1'),
 
-            shadow1 : shadowFor('light2', select("vis(")),
-            shadow2 : shadowFor('light1', select("vis("))
+            shadow1 : shadowFor('light2', select("table1-v")),
+            shadow2 : shadowFor('light1', select("table1-v"))
         };
     };
 }
@@ -572,6 +672,12 @@ var globalCamera;
                 var item = <Rnb.StandardMaterial>rawItem;
 
                 var r = realObjects[name] = new BABYLON.StandardMaterial(name, scene);
+                if (item.alpha) {
+                    r.alpha = item.alpha;
+                }
+                if (item.diffuseColor) {
+                    r.diffuseColor = new BABYLON.Color3(item.diffuseColor.r, item.diffuseColor.g, item.diffuseColor.b);
+                }
                 if (item.diffuseTexture) {
                     if (item.diffuseTexture.type == "texture") {
                         var texture = <Rnb.Texture>item.diffuseTexture;

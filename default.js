@@ -157,11 +157,13 @@ var App;
             return x.filter(function (item) { return item.name.indexOf(pattern) != -1; }).map(function (item) { return item.name; });
         };
     }
-    function text() {
+    function text(name) {
         return {
             type: 'dynamicTexture',
+            name: name,
             width: 128,
             height: 128,
+            wAng: Math.PI / 2,
             renderCallback: 'function callback(texture) { texture.drawText("E", null, 80, "bold 70px Segoe UI", "white", "#555555"); }; callback;'
         };
     }
@@ -184,7 +186,7 @@ var App;
                 type: 'material',
                 specularColor: { r: 0, g: 0, b: 0 },
                 alpha: HOLO_ALPHA,
-                diffuseTexture: text()
+                diffuseTexture: text('text1-text')
             },
             basicLights({ x: cameraX, y: cameraY, z: cameraZ }),
             holo_diffuse('holo_stone', 'seamless_stone_texture.jpg'),
@@ -435,29 +437,41 @@ var Rnb;
                         r.diffuseColor = new BABYLON.Color3(item.diffuseColor.r, item.diffuseColor.g, item.diffuseColor.b);
                     }
                     if (item.diffuseTexture) {
+                        var sharedTexture;
+                        var dynamicTexture;
+                        var texture = item.diffuseTexture;
                         if (item.diffuseTexture.type === "texture") {
-                            var texture = item.diffuseTexture;
-                            var realTexture = new BABYLON.Texture(texture.url, scene);
-                            r.diffuseTexture = realTexture;
-                            if (texture.uScale) {
-                                realTexture.uScale = texture.uScale;
-                            }
-                            if (texture.vScale) {
-                                realTexture.vScale = texture.vScale;
-                            }
+                            sharedTexture = new BABYLON.Texture(texture.url, scene);
                         }
                         else if (item.diffuseTexture.type === "dynamicTexture") {
                             var dt = item.diffuseTexture;
-                            var realDT = new BABYLON.DynamicTexture(dt.name, { width: dt.width, height: dt.height }, scene, true);
-                            r.diffuseTexture = realDT;
-                            if (dt.uScale) {
-                                realDT.uScale = dt.uScale;
-                            }
-                            if (dt.vScale) {
-                                realDT.vScale = dt.vScale;
-                            }
+                            sharedTexture = dynamicTexture = new BABYLON.DynamicTexture(dt.name, { width: dt.width, height: dt.height }, scene, true);
+                        }
+                        r.diffuseTexture = sharedTexture;
+                        if (texture.uOffset) {
+                            sharedTexture.uOffset = texture.uOffset;
+                        }
+                        if (texture.vOffset) {
+                            sharedTexture.vOffset = texture.vOffset;
+                        }
+                        if (texture.uScale) {
+                            sharedTexture.uScale = texture.uScale;
+                        }
+                        if (texture.vScale) {
+                            sharedTexture.vScale = texture.vScale;
+                        }
+                        if (texture.uAng) {
+                            sharedTexture.uAng = texture.uAng;
+                        }
+                        if (texture.vAng) {
+                            sharedTexture.vAng = texture.vAng;
+                        }
+                        if (texture.wAng) {
+                            sharedTexture.wAng = texture.wAng;
+                        }
+                        if (item.diffuseTexture.type === "dynamicTexture") {
                             var t = eval(dt.renderCallback);
-                            t.call(null, realDT);
+                            t.call(null, dynamicTexture);
                         }
                     }
                     if (item.specularColor) {

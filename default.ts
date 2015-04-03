@@ -165,6 +165,15 @@ module App {
          return function(x) { return x.filter(item => item.name.indexOf(pattern) != -1).map(item=> item.name); };
     }
 
+    function text() {
+        return <Rnb.DynamicTexture>{
+            type: 'dynamicTexture',
+            width: 128,
+            height: 128,
+            renderCallback: 'function callback(texture) { texture.drawText("E", null, 80, "bold 70px Segoe UI", "white", "#555555"); }; callback;'
+        };
+    }
+
     export function render(time, model) : Rnb.SceneGraph {
         var cameraX = (Math.sin(time/40) * 10);
         var cameraY = 5;
@@ -179,6 +188,13 @@ module App {
                 relativeTo: "$origin",
                 target: {x:0, y:5, z:0},
                 attachControl: "renderCanvas"
+            },
+            <Rnb.Material>{
+                name: 'text1',
+                type: 'material',
+                specularColor: { r: 0, g: 0, b: 0 },
+                alpha: HOLO_ALPHA,
+                diffuseTexture: text()
             },
             basicLights({x: cameraX, y: cameraY, z: cameraZ}),
             holo_diffuse('holo_stone', 'seamless_stone_texture.jpg'),
@@ -212,7 +228,7 @@ module App {
                 diameter: 1,
                 scaling: {x:sphereScale, y:sphereScale, z:sphereScale},
                 segments: 12,
-                material: "holo_stone"
+                material: "text1"
             },
 
             hud('hud1'),
@@ -299,7 +315,13 @@ module Rnb {
         vAng?: number;
         wAng?: number;
     }
-    export interface  Material extends GraphElement {
+    export interface DynamicTexture extends Texture {
+        name: string;
+        renderCallback: string;
+        width: number;
+        height: number;
+    }
+    export interface Material extends GraphElement {
         alpha?: number;
         backFaceCulling?: boolean;
         pointSize?: number;
@@ -675,16 +697,25 @@ module Rnb.Runtime {
                     r.diffuseColor = new BABYLON.Color3(item.diffuseColor.r, item.diffuseColor.g, item.diffuseColor.b);
                 }
                 if (item.diffuseTexture) {
-                    if (item.diffuseTexture.type == "texture") {
+                    if (item.diffuseTexture.type === "texture") {
                         var texture = <Rnb.Texture>item.diffuseTexture;
                         var realTexture = new BABYLON.Texture(texture.url, scene);
                         r.diffuseTexture = realTexture;
-                        if (texture.uScale) { realTexture.uScale = texture.uScale }
-                        if (texture.vScale) { realTexture.vScale = texture.vScale }
-                        if (item.specularColor) {
-                            r.specularColor = new BABYLON.Color3(item.specularColor.r, item.specularColor.g, item.specularColor.b);
-                        }
+                        if (texture.uScale) { realTexture.uScale = texture.uScale; }
+                        if (texture.vScale) { realTexture.vScale = texture.vScale; }
                     }
+                    else if (item.diffuseTexture.type === "dynamicTexture") {
+                        var dt = <Rnb.DynamicTexture>item.diffuseTexture;
+                        var realDT = new BABYLON.DynamicTexture(dt.name, {width:dt.width,height:dt.height}, scene, true);
+                        r.diffuseTexture = realDT;
+                        if (dt.uScale) { realDT.uScale = dt.uScale; }
+                        if (dt.vScale) { realDT.vScale = dt.vScale; }
+                        var t = <Function>eval(dt.renderCallback);
+                        t.call(null, realDT);
+                    }
+                }
+                if (item.specularColor) {
+                    r.specularColor = new BABYLON.Color3(item.specularColor.r, item.specularColor.g, item.specularColor.b);
                 }
             },
             update: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {

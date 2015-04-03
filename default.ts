@@ -1,14 +1,264 @@
 ///<reference path='Babylon.js-2.0/references/poly2tri.d.ts' />
 ///<reference path='Babylon.js-2.0/references/waa.d.ts' />
 ///<reference path='Babylon.js-2.0/babylon.2.0.d.ts' />
-var HOLO_ALPHA = .6;
 
-// beginings of TypeScript definition for OM
-//
+module App {
+    var HOLO_ALPHA = .6;
+
+    /**
+     * Returns a two light system, one light at cameraPos, the other a top down ambient light
+     */
+    function basicLights(cameraPos : Rnb.Vector3) : Rnb.SceneGraph {
+        return [
+            <Rnb.DirectionalLight>{
+                name: 'light1',
+                type: 'directionalLight',
+                position: { x: 0, y: 13, z: 0 },
+                relativeTo: "ground1",
+                direction: {x:0, y:-1, z:.1},
+                intensity: .7,
+                diffuse: {r:.9, g:.9, b:1},
+                specular: {r:1, g:1, b:1}
+            },
+            <Rnb.DirectionalLight>{
+                name: 'light2',
+                type: 'directionalLight',
+                relativeTo: "ground1",
+                position: { x: cameraPos.x, y: cameraPos.y * 2, z: cameraPos.z * 1.2 },
+                direction: {
+                    x:-cameraPos.x, 
+                    y:-cameraPos.y, 
+                    z:-cameraPos.z
+                },
+                diffuse: {r:.5, g:.5, b:.5},
+                specular: {r:1, g:1, b:1}
+            }
+        ];
+    }
+    function hudControl(name : string, material : string, x : number) {
+        return {
+            name: name,
+            type: 'sphere',
+            position: { x: x, y: -1, z: 3 },
+            relativeTo: '$camera',
+            diameter: .4,
+            segments: 12,
+            material: material
+        }
+    }
+    function hud(name: string) : Rnb.SceneGraph {
+        var materialName = name + '-mat1';
+        return [
+            { name: materialName, type: 'material', diffuseColor : { r:.2, g:0.2, b:1}, alpha: HOLO_ALPHA },
+            hudControl(name + "-hud1", materialName, -1),
+            hudControl(name + "-hud2", materialName, -.5),
+            hudControl(name + "-hud3", materialName, 0),
+            hudControl(name + "-hud4", materialName, .5),
+            hudControl(name + "-hud5", materialName, 1)
+        ];
+    }    
+    function diffuse(name: string, url : string) : Rnb.StandardMaterial { 
+        return { name: name, type: 'material', diffuseTexture: { type: 'texture', url: url } };
+    }
+    function holo_diffuse(name: string, url : string) : Rnb.StandardMaterial { 
+        return { name: name, type: 'material', diffuseTexture: { type: 'texture', url: url }, alpha: HOLO_ALPHA };
+    }
+    function shadowFor(name: string, lightName : string, renderList : Rnb.FlatSceneGraphToValue<string[]> | string[]) : Rnb.ShadowGenerator { 
+        return { name: name, type: 'shadowGenerator', light: lightName, renderList: renderList }; 
+    }
+    function flatGround(name: string, width : number, depth : number, material : string) : Rnb.Ground { 
+        return {
+            name: name, 
+            type: 'ground', 
+            position: { x: 0, y: 0, z: 0 },
+            relativeTo: "$origin",
+            width:width, 
+            depth:depth, 
+            segments:8, 
+            material:material 
+        };
+    }
+    function groundFromHeightMap(
+        name: string, 
+        width : number, 
+        depth : number, 
+        minHeight : number, 
+        maxHeight : number, 
+        heightMapUrl : string, 
+        material : string) : Rnb.GroundFromHeightMap {
+
+        return { 
+            name: name, 
+            type: 'groundFromHeightMap', 
+            position: { x: 0, y: 0, z: 0 },
+            relativeTo: "$origin",
+            width:width, 
+            depth:depth, 
+            minHeight: minHeight,
+            maxHeight: maxHeight,
+            segments:8, 
+            url: heightMapUrl,
+            material: material 
+        };
+    }
+    function table(name : string, position : Rnb.Vector3, relativeTo: string) : Rnb.SceneGraph {
+        var width = 16;
+        var depth = 8;
+        var legHeight = 4;
+        var legTopSize = 1;
+        var topThickness = .2;
+        var materialName = name + '-wood';
+
+        function tableLeg(part : string, position : Rnb.Vector3) {
+            return <Rnb.Box>{
+                name: name + "-" + part,
+                type: 'box',
+                position: position,
+                relativeTo: relativeTo,
+                size: 1,
+                scaling: { x: legTopSize, y: legHeight, z: legTopSize },
+                material: materialName
+            };
+        };
+        return [
+            diffuse(materialName, 'wood.jpg'),
+            <Rnb.Box>{
+                name: name + '-v-top',
+                type: 'box',
+                position: { x: position.x, y: position.y + legHeight, z: position.z },
+                relativeTo: relativeTo,
+                size: 1,
+                scaling: { x: width, y: topThickness, z: depth },
+                material: materialName
+            },
+            tableLeg('leftfront', { 
+                    x: position.x - (width / 2) + (legTopSize / 2), 
+                    y: position.y + (legHeight / 2) - (topThickness / 2), 
+                    z: position.z - (depth / 2) + (legTopSize / 2) 
+                }),
+            tableLeg('rightfront', { 
+                    x: position.x + (width / 2) - (legTopSize / 2), 
+                    y: position.y + (legHeight / 2) - (topThickness / 2), 
+                    z: position.z - (depth / 2) + (legTopSize / 2) 
+                }),
+            tableLeg('leftback', { 
+                    x: position.x - (width / 2) + (legTopSize / 2), 
+                    y: position.y + (legHeight / 2) - (topThickness / 2), 
+                    z: position.z + (depth / 2) - (legTopSize / 2)
+                }),
+            tableLeg('rightback', { 
+                    x: position.x + (width / 2) - (legTopSize / 2), 
+                    y: position.y + (legHeight / 2) - (topThickness / 2), 
+                    z: position.z + (depth / 2) - (legTopSize / 2)
+                }),
+        ];
+    }
+    /**
+     * Returns a function which will seach the tree for any objects with a name matching
+     * pattern.
+     *
+     * @param {string} pattern The string pattern to search names for, for now it is a simple "indexOf" matching
+     *
+     * @return {function(o : Rnb.FlatSceneGraph) => string[]} Function that will search the graph for the specified items
+     */
+     function select(pattern : string) : Rnb.FlatSceneGraphToValue<string[]> {
+         return function(x) { return x.filter(item => item.name.indexOf(pattern) != -1).map(item=> item.name); };
+    }
+
+    export function render(time, model) : Rnb.SceneGraph {
+        var cameraX = (Math.sin(time/40) * 10);
+        var cameraY = 5;
+        var cameraZ = (Math.sin((time+20)/40) * 10);
+        var sphereScale = Math.abs(Math.sin(time / 20)) * 2;
+
+        return <Rnb.SceneGraph>[
+            <Rnb.FreeCamera>{
+                name: 'camera1',
+                type: 'freeCamera',
+                position: { x: 0, y: 10, z: -17 },
+                relativeTo: "$origin",
+                target: {x:0, y:5, z:0},
+                attachControl: "renderCanvas"
+            },
+            basicLights({x: cameraX, y: cameraY, z: cameraZ}),
+            holo_diffuse('holo_stone', 'seamless_stone_texture.jpg'),
+            <Rnb.Material>{
+                name: 'dirt',
+                type: 'material',
+                specularColor: { r: 0, g: 0, b: 0 },
+                diffuseTexture: <Rnb.Texture>{ type: 'texture', url: 'ground.jpg', uScale: 4, vScale: 4 }
+            },
+            groundFromHeightMap('ground1', 50, 50, 0, 3, "heightMap.png", "dirt"),
+            table('table1', {x:0,y:0,z:0}, 'ground1'),
+            model.map((value, index) => <Rnb.Box>{
+                name: 'vis(' + index + ')',
+                type: 'box',
+                position: {
+                    x: index - model.length / 2,
+                    y: (value / 4),
+                    z: 0
+                },
+                relativeTo: "table1-v-top",
+                size: 1,
+                scaling: { x: .8, y: value / 2, z: .8 },
+                material: "holo_stone"
+            }),
+
+            <Rnb.Sphere>{
+                name: "vis(-1)",
+                type: 'sphere',
+                position: { x: 0, y: 2, z: 0 },
+                relativeTo: "vis(0)",
+                diameter: 1,
+                scaling: {x:sphereScale, y:sphereScale, z:sphereScale},
+                segments: 12,
+                material: "holo_stone"
+            },
+
+            hud('hud1'),
+
+            shadowFor('shadow1', 'light2', select("table1-v")),
+            shadowFor('shadow2', 'light1', select("table1-v"))
+        ];
+    };
+}
+
 module Rnb {
     // UNDONE action on objects is a hack for DIFF, should rethink that design
     //
+    // UNDONE name on elements is kludgy, in the end we need it for Babylon, but
+    // it introduces an odd set of constructs in the code to deal with name munging
+    // of components and requiring lots of functions to take a name in from 
+    // the caller for multi-instancing.
+    //
+    export interface GraphElement {
+        name: string;
+        type: string;
+        action?: string;
+    }
+    /**
+     * SceneGraph is what "render" should return, it can be any combination of graph elements
+     * or nested scene graphs. The nesting is primarily to make it easier to build components,
+     * however, keep in mind that all names must be globally unique.
+     */
+    export interface SceneGraph extends Array<GraphElement | SceneGraph> { }
 
+    /**
+     * FlatSceneGraph is the flattened version of a SceneGraph, where all nesting is
+     * removed. All graph element names must be unique.
+     */
+    export interface FlatSceneGraph extends Array<GraphElement> { }
+
+    export interface FlatSceneGraphToValue<T> { (graph : Rnb.FlatSceneGraph) : T; }
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    // These are all simplified copies of BABYLON classes. They are converted
+    // to interfaces to allow for JSON record definitions, and have name based
+    // binding to facilitate graph definition in simple records.
+    //
+    // When in doubt, clone more of BABYLON :)
+    //
     export interface Vector3 {
         x: number;
         y: number;
@@ -89,10 +339,6 @@ module Rnb {
         position: Vector3;
         relativeTo: string;
     }
-    export interface GraphElement {
-        type: string;
-        action?: string;
-    }
     export interface Geometry extends HasPosition, GraphElement {
         material?: string;
         scaling?: Vector3;
@@ -134,9 +380,9 @@ module Rnb {
         useVarianceShadowMap?: boolean;
         usePoissonSampling?: boolean;
         light: string;
-        renderList: Rnb.SceneGraphToValue<string[]> | string[];
+        renderList: Rnb.FlatSceneGraphToValue<string[]> | string[];
     }
-    export interface Camera extends HasPosition {
+    export interface Camera extends GraphElement, HasPosition {
         type: string;
         action?: string;
         upVector?: Vector3;
@@ -175,281 +421,32 @@ module Rnb {
         applyGravity?: boolean;
         angularSensibility?: number;
     }
-
-    export interface Composite extends GraphElement {
-        [key: string]: GraphElement | string;
-    }
-    export interface SceneGraph {
-        [key: string]: GraphElement;
-    }
-    export interface SceneGraphToValue<T> {
-        (graph : Rnb.SceneGraph) : T;
-    }
 }
 
-// UNDONE: need to think about JSON objects vs. creation functions... 
-//
-module App {
-    /**
-     * Returns a two light system, one light at cameraPos, the other a top down ambient light
-    */
-    function basicLights(cameraPos : Rnb.Vector3) : Rnb.Composite {
-        return {
-            type: 'composite',
-            light1 : <Rnb.DirectionalLight>{
-                type: 'directionalLight',
-                position: { x: 0, y: 13, z: 0 },
-                relativeTo: "ground1",
-                direction: {x:0, y:-1, z:.1},
-                intensity: .7,
-                diffuse: {r:.9, g:.9, b:1},
-                specular: {r:1, g:1, b:1}
-            },
-            light2 : <Rnb.DirectionalLight>{
-                type: 'directionalLight',
-                relativeTo: "ground1",
-                position: { x: cameraPos.x, y: cameraPos.y * 2, z: cameraPos.z * 1.2 },
-                direction: {
-                    x:-cameraPos.x, 
-                    y:-cameraPos.y, 
-                    z:-cameraPos.z
-                },
-                diffuse: {r:.5, g:.5, b:.5},
-                specular: {r:1, g:1, b:1}
-            }
-        };
-    }
-    function hud(name: string) {
-        var rec = {
-            type: 'composite'
-        };
-        var yOffset = -1;
-        rec[name + '-mat1'] = { type: 'material', diffuseColor : { r:.2, g:0.2, b:1}, alpha: HOLO_ALPHA };
-        rec[name + "-hud1"] = {
-            type: 'sphere',
-            position: { x: -1, y: yOffset, z: 3 },
-            relativeTo: '$camera',
-            diameter: .4,
-            segments: 12,
-            material: name + '-mat1'
-        };
-        rec[name + "-hud2"] = {
-            type: 'sphere',
-            position: { x: -.5, y: yOffset, z: 3 },
-            relativeTo: '$camera',
-            diameter: .4,
-            segments: 12,
-            material: name + '-mat1'
-        };
-        rec[name + "-hud3"] = {
-            type: 'sphere',
-            position: { x: 0, y: yOffset, z: 3 },
-            relativeTo: '$camera',
-            diameter: .4,
-            segments: 12,
-            material: name + '-mat1'
-        };
-        rec[name + "-hud4"] = {
-            type: 'sphere',
-            position: { x: .5, y: yOffset, z: 3 },
-            relativeTo: '$camera',
-            diameter: .4,
-            segments: 12,
-            material: name + '-mat1'
-        };
-        rec[name + "-hud5"] = {
-            type: 'sphere',
-            position: { x: 1, y: yOffset, z: 3 },
-            relativeTo: '$camera',
-            diameter: .4,
-            segments: 12,
-            material: name + '-mat1'
-        };
-        return rec;
-    }    
-    function diffuse(url : string) : Rnb.StandardMaterial { 
-        return { type: 'material', diffuseTexture: { type: 'texture', url: url } };
-    }
-    function holo_diffuse(url : string) : Rnb.StandardMaterial { 
-        return { type: 'material', diffuseTexture: { type: 'texture', url: url }, alpha: HOLO_ALPHA };
-    }
-    function shadowFor(lightName : string, renderList : Rnb.SceneGraphToValue<string[]> | string[]) : Rnb.ShadowGenerator { 
-        return { type: 'shadowGenerator', light: lightName, renderList: renderList }; 
-    }
-    function flatGround(width : number, depth : number, material : string) : Rnb.Ground { 
-        return {
-            type: 'ground', 
-            position: { x: 0, y: 0, z: 0 },
-            relativeTo: "$origin",
-            width:width, 
-            depth:depth, 
-            segments:8, 
-            material:material 
-        };
-    }
-    function groundFromHeightMap(
-        width : number, 
-        depth : number, 
-        minHeight : number, 
-        maxHeight : number, 
-        heightMapUrl : string, 
-        material : string) : Rnb.GroundFromHeightMap {
+module Rnb.Runtime {
 
-        return { 
-            type: 'groundFromHeightMap', 
-            position: { x: 0, y: 0, z: 0 },
-            relativeTo: "$origin",
-            width:width, 
-            depth:depth, 
-            minHeight: minHeight,
-            maxHeight: maxHeight,
-            segments:8, 
-            url: heightMapUrl,
-            material: material 
-        };
+    interface ApplyHandlerCallback {
+        (rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache);
     }
-    function table(name : string, position : Rnb.Vector3, relativeTo: string) {
-        var rec = {
-            type: 'composite'
-        };
-        var width = 16;
-        var depth = 8;
-        var legHeight = 4;
-        var legTopSize = 1;
-        var topThickness = .2;
-
-        rec[name + '-mat1'] = diffuse('wood.jpg'),
-        rec[name + '-v-top'] = <Rnb.Box>{
-            type: 'box',
-            position: {x:position.x, y:position.y + legHeight, z:position.z},
-            relativeTo: relativeTo,
-            size: 1,
-            scaling: { x: width, y: topThickness, z: depth },
-            material: name + '-mat1'
-        };
-        rec[name + '-v-leftfront'] = <Rnb.Box>{
-            type: 'box',
-            position: {x:position.x-(width/2)+(legTopSize/2), y:position.y + (legHeight/2) - (topThickness/2), z:position.z - (depth/2) + (legTopSize/2)},
-            relativeTo: relativeTo,
-            size: 1,
-            scaling: { x: legTopSize, y: legHeight, z: legTopSize },
-            material: name + '-mat1'
-        };
-        rec[name + '-v-rightfront'] = <Rnb.Box>{
-            type: 'box',
-            position: {x:position.x+(width/2)-(legTopSize/2), y:position.y + (legHeight/2) - (topThickness/2), z:position.z - (depth/2) + (legTopSize/2)},
-            relativeTo: relativeTo,
-            size: 1,
-            scaling: { x: legTopSize, y: legHeight, z: legTopSize },
-            material: name + '-mat1'
-        };
-        rec[name + '-v-leftback'] = <Rnb.Box>{
-            type: 'box',
-            position: {x:position.x-(width/2)+(legTopSize/2), y:position.y + (legHeight/2) - (topThickness/2), z:position.z + (depth/2) - (legTopSize/2)},
-            relativeTo: relativeTo,
-            size: 1,
-            scaling: { x: legTopSize, y: legHeight, z: legTopSize },
-            material: name + '-mat1'
-        };
-        rec[name + '-v-rightback'] = <Rnb.Box>{
-            type: 'box',
-            position: {x:position.x+(width/2)-(legTopSize/2), y:position.y + (legHeight/2) - (topThickness/2), z:position.z + (depth/2) - (legTopSize/2)},
-            relativeTo: relativeTo,
-            size: 1,
-            scaling: { x: legTopSize, y: legHeight, z: legTopSize },
-            material: name + '-mat1'
-        };
-        return rec;        
+    interface ApplyHandler {
+        create: ApplyHandlerCallback;
+        update: ApplyHandlerCallback;
+        diff?: (oldItem: Rnb.GraphElement, newItem: Rnb.GraphElement) => Rnb.GraphElement;
     }
-    /**
-     * Returns a function which will seach the tree for any objects with a name matching
-     * pattern.
-     *
-     * @param {string} pattern The string pattern to search names for, for now it is a simple "indexOf" matching
-     *
-     * @return {function(o : any) => string[]} The circumference of the circle.
-     */
-     function select(pattern : string) : Rnb.SceneGraphToValue<string[]> {
-        return function(x) { return Object.keys(x).filter(i => i.indexOf(pattern) != -1 )};
+    interface HandlerBlock {
+        [key: string]: ApplyHandler;
+    }
+    interface RealObjectsCache {
+        [key: string]: BABYLON.Node | BABYLON.Material | BABYLON.ShadowGenerator;
+    }
+    interface BabylonHasPosition {
+        position: BABYLON.Vector3
     }
 
-    export function render(time, model) : Rnb.SceneGraph {
-        // UNDONE: "ig*" is ignored... design question - if this was an array, it would look 
-        // better but then the definition of "name/id" on other elements would be more ugly... 
-        //
-
-        var cameraX = (Math.sin(time/40) * 10);
-        var cameraY = 5;
-        var cameraZ = (Math.sin((time+20)/40) * 10);
-        var sphereScale = Math.abs(Math.sin(time / 20)) * 2;
-
-        return <Rnb.SceneGraph>{
-            camera1: <Rnb.FreeCamera>{
-                type: 'freeCamera',
-                position: { x: 0, y: 10, z: -17 },
-                relativeTo: "$origin",
-                target: {x:0, y:5, z:0},
-                attachControl: "renderCanvas"
-            },
-            ig: basicLights({x: cameraX, y: cameraY, z: cameraZ}),
-            material1 : holo_diffuse('seamless_stone_texture.jpg'),
-            solid_material : diffuse('seamless_stone_texture.jpg'),
-            groundMaterial: <Rnb.Material>{
-                type: 'material',
-                specularColor: { r: 0, g: 0, b: 0 },
-                diffuseTexture: <Rnb.Texture>{ type: 'texture', url: 'ground.jpg', uScale: 4, vScale: 4 }
-            },
-            ground1 : groundFromHeightMap(50, 50, 0, 3, "heightMap.png", "groundMaterial"),
-            ig4: table('table1', {x:0,y:0,z:0}, 'ground1'),
-            ig2: model.reduce(function (prev, current, index, arr) {
-                var name = 'vis('+index+')';
-                prev[name] = <Rnb.Box>{
-                    type: 'box',
-                    position: {
-                        x: index - arr.length / 2,
-                        y: (current / 4),
-                        z: 0
-                    },
-                    relativeTo: "table1-v-top",
-                    size: 1,
-                    scaling: { x: .8, y: current / 2, z: .8 },
-                    material: "material1"
-                };
-                return prev;
-            }, <Rnb.Composite>{ type: 'composite' }),
-
-            "vis(-1)" : <Rnb.Sphere>{
-                type: 'sphere',
-                position: { x: 0, y: 2, z: 0 },
-                relativeTo: "vis(0)",
-                diameter: 1,
-                scaling: {x:sphereScale, y:sphereScale, z:sphereScale},
-                segments: 12,
-                material: "material1"
-            },
-
-            ig3: hud('hud1'),
-
-            shadow1 : shadowFor('light2', select("table1-v")),
-            shadow2 : shadowFor('light1', select("table1-v"))
-        };
-    };
-}
-
-interface ApplyHandlerCallback {
-    (rawItem: Rnb.GraphElement, name: string, dom, scene, realObjects);
-}
-interface ApplyHandler {
-    create: ApplyHandlerCallback;
-    update: ApplyHandlerCallback;
-    diff?: (oldItem: Rnb.GraphElement, newItem: Rnb.GraphElement) => Rnb.GraphElement;
-}
-interface HandlerBlock {
-    [key:string] : ApplyHandler;
-}
-var globalCamera;
-
-(function() {
+    // UNDONE to enabled $camera, we stash away a camera reference. Seems like there
+    // should be a cleaner way to do this more generically
+    //
+    var globalCamera;
 
     // creation of new meshes can be expensive, to avoid hanging the UI thread, I limit
     // the number of expensive operations per frame. The rest will be picked up on the 
@@ -457,12 +454,11 @@ var globalCamera;
     //
     var MAX_UPDATES = 20;
 
-
     // all of these update handlers are pretty bogus. Once DIFF becomes smart enough, we should clearly only 
     // update the changed values.
     // 
-    function updatePosition(item : Rnb.HasPosition, r, realObjects) {
-        // eventually "$origin" shouldn't be supported
+    function updatePosition(item: Rnb.HasPosition, r : BabylonHasPosition, realObjects : RealObjectsCache) {
+        // eventually "$origin" shouldn't be supported except for surface reconstruction
         //
         var relativeTo = item.relativeTo || "$origin";
         switch (relativeTo) {
@@ -472,7 +468,7 @@ var globalCamera;
                 r.position.z = item.position.z;
                 break;
             case "$camera":
-                var matrix : BABYLON.Matrix = globalCamera.getWorldMatrix();
+                var matrix: BABYLON.Matrix = globalCamera.getWorldMatrix();
                 var place = BABYLON.Vector3.TransformCoordinates(new BABYLON.Vector3(item.position.x, item.position.y, item.position.z), matrix);
 
                 r.position.x = place.x;
@@ -480,7 +476,7 @@ var globalCamera;
                 r.position.z = place.z;
                 break;
             default:
-                var relative: { position: BABYLON.Vector3 } = realObjects[relativeTo];
+                var relative: BabylonHasPosition = <BabylonHasPosition>(<any>realObjects[relativeTo]);
                 if (relative) {
                     // UNDONE: right now this is relative to the center of the object, we really
                     // need proper pins on any mesh point... also, consider rotation, scale, etc... 
@@ -497,7 +493,7 @@ var globalCamera;
                 break;
         }
     }
-    function updateGeometryProps(item : Rnb.Geometry, includeExpensive : boolean, realObjects, r) {
+    function updateGeometryProps(item: Rnb.Geometry, includeExpensive: boolean, realObjects : RealObjectsCache, r) {
         if (item.scaling) {
             r.scaling.x = item.scaling.x;
             r.scaling.y = item.scaling.y;
@@ -511,7 +507,7 @@ var globalCamera;
             }
         }
     }
-    function updateLightProps(item : Rnb.Light, r) {
+    function updateLightProps(item: Rnb.Light, r) {
         r.intensity = item.intensity || 1;
         if (item.diffuse) {
             r.diffuse = new BABYLON.Color3(item.diffuse.r, item.diffuse.g, item.diffuse.b);
@@ -521,65 +517,65 @@ var globalCamera;
         }
     }
 
-    var handlers : HandlerBlock = {
+    var handlers: HandlerBlock = {
         box: {
-            create: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+            create: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <Rnb.Box>rawItem;
 
-                var r = realObjects[name] = BABYLON.Mesh.CreateBox(name, item.size, scene);
+                var r = realObjects[item.name] = BABYLON.Mesh.CreateBox(item.name, item.size, scene);
                 updateGeometryProps(item, true, realObjects, r);
             },
-            update: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
-                updateGeometryProps(<Rnb.Box>rawItem, false, realObjects, realObjects[name]);
+            update: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
+                updateGeometryProps(<Rnb.Box>rawItem, false, realObjects, realObjects[rawItem.name]);
             }
         },
         sphere: {
-            create: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+            create: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <Rnb.Sphere>rawItem;
 
-                var r = realObjects[name] = BABYLON.Mesh.CreateSphere(name, item.segments || 16, item.diameter, scene, true);
+                var r = realObjects[item.name] = BABYLON.Mesh.CreateSphere(item.name, item.segments || 16, item.diameter, scene, true);
                 updateGeometryProps(item, true, realObjects, r);
             },
-            update: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+            update: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <Rnb.Sphere>rawItem;
-                updateGeometryProps(item, false, realObjects, realObjects[name]);
+                updateGeometryProps(item, false, realObjects, realObjects[item.name]);
             }
         },
         ground: {
-            create: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+            create: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <Rnb.Ground>rawItem;
 
-                var r = realObjects[name] = BABYLON.Mesh.CreateGround(name, item.width, item.depth, item.segments, scene);
+                var r = realObjects[item.name] = BABYLON.Mesh.CreateGround(item.name, item.width, item.depth, item.segments, scene);
                 updateGeometryProps(item, true, realObjects, r);
             },
-            update: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
-                updateGeometryProps(<Rnb.Ground>rawItem, false, realObjects, realObjects[name]);
+            update: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
+                updateGeometryProps(<Rnb.Ground>rawItem, false, realObjects, realObjects[rawItem.name]);
             }
         },
         groundFromHeightMap: {
-            create: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+            create: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <Rnb.GroundFromHeightMap>rawItem;
 
-                var r = realObjects[name] = 
-                    BABYLON.Mesh.CreateGroundFromHeightMap(name, 
-                        item.url, 
-                        item.width, 
-                        item.depth, 
-                        item.segments, 
-                        item.minHeight, 
-                        item.maxHeight,  
-                        scene, 
+                var r = realObjects[item.name] =
+                    BABYLON.Mesh.CreateGroundFromHeightMap(item.name,
+                        item.url,
+                        item.width,
+                        item.depth,
+                        item.segments,
+                        item.minHeight,
+                        item.maxHeight,
+                        scene,
                         false);
                 updateGeometryProps(item, true, realObjects, r);
             },
-            update: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
-                updateGeometryProps(<Rnb.GroundFromHeightMap>rawItem, false, realObjects, realObjects[name]);
+            update: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
+                updateGeometryProps(<Rnb.GroundFromHeightMap>rawItem, false, realObjects, realObjects[rawItem.name]);
             }
         },
         hemisphericLight: {
-            create: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+            create: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <Rnb.HemisphericLight>rawItem;
-                var r = realObjects[name] = new BABYLON.HemisphericLight(name, new BABYLON.Vector3(item.direction.x, item.direction.y, item.direction.z), scene);
+                var r = realObjects[item.name] = new BABYLON.HemisphericLight(item.name, new BABYLON.Vector3(item.direction.x, item.direction.y, item.direction.z), scene);
                 updateLightProps(item, r);
                 if (item.groundColor) {
                     r.groundColor.r = item.groundColor.r;
@@ -587,10 +583,10 @@ var globalCamera;
                     r.groundColor.b = item.groundColor.b;
                 }
             },
-            update: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+            update: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <Rnb.HemisphericLight>rawItem;
 
-                var r = realObjects[name];
+                var r = <BABYLON.HemisphericLight>realObjects[item.name];
                 updateLightProps(item, r);
                 if (item.groundColor) {
                     r.groundColor.r = item.groundColor.r;
@@ -600,58 +596,58 @@ var globalCamera;
             }
         },
         pointLight: {
-            create: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+            create: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <Rnb.PointLight>rawItem;
-                var r = realObjects[name] = new BABYLON.PointLight(name, new BABYLON.Vector3(item.position.x, item.position.y, item.position.z), scene);
+                var r = realObjects[item.name] = new BABYLON.PointLight(item.name, new BABYLON.Vector3(item.position.x, item.position.y, item.position.z), scene);
                 updateLightProps(item, r);
             },
-            update: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+            update: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <Rnb.PointLight>rawItem;
 
-                var r = realObjects[name];
+                var r = <BABYLON.PointLight>realObjects[item.name];
                 updatePosition(item, r, realObjects);
                 updateLightProps(item, r);
             }
         },
         directionalLight: {
-            create: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+            create: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <Rnb.DirectionalLight>rawItem;
 
-                var r = realObjects[name] = new BABYLON.DirectionalLight(name, new BABYLON.Vector3(item.direction.x, item.direction.y, item.direction.z), scene);
+                var r = realObjects[item.name] = new BABYLON.DirectionalLight(item.name, new BABYLON.Vector3(item.direction.x, item.direction.y, item.direction.z), scene);
                 updatePosition(item, r, realObjects);
                 updateLightProps(item, r);
             },
-            update: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+            update: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <Rnb.DirectionalLight>rawItem;
 
-                var r = realObjects[name];
+                var r = <BABYLON.DirectionalLight>realObjects[item.name];
                 r.direction = new BABYLON.Vector3(item.direction.x, item.direction.y, item.direction.z)
                 updatePosition(item, r, realObjects);
                 updateLightProps(item, r);
             }
         },
         shadowGenerator: {
-            create: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+            create: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <Rnb.ShadowGenerator>rawItem;
 
-                var r = realObjects[name] = new BABYLON.ShadowGenerator(1024, realObjects[item.light]);
+                var r = realObjects[item.name] = new BABYLON.ShadowGenerator(1024, <BABYLON.IShadowLight>(<any>realObjects[item.light]));
                 r.usePoissonSampling = item.usePoissonSampling;
                 r.useVarianceShadowMap = item.useVarianceShadowMap;
                 var renderList = r.getShadowMap().renderList;
-                for (var i=0; i<item.renderList.length; i++) {
-                    renderList.push(realObjects[item.renderList[i]]);
+                for (var i = 0; i < item.renderList.length; i++) {
+                    renderList.push(<BABYLON.AbstractMesh>realObjects[item.renderList[i]]);
                 }
             },
-            update: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+            update: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <Rnb.ShadowGenerator>rawItem;
 
-                var r: BABYLON.ShadowGenerator = realObjects[name];
+                var r = <BABYLON.ShadowGenerator>realObjects[item.name];
                 var renderList = r.getShadowMap().renderList;
                 var needRecreate = true;
 
                 if (renderList.length == item.renderList.length) {
                     var allMatch = true;
-                    for (var i=0; i<item.renderList.length && needRecreate; i++) {
+                    for (var i = 0; i < item.renderList.length && needRecreate; i++) {
                         allMatch = allMatch && (renderList[i].name === item.renderList[i]);
                     }
                     needRecreate = !allMatch;
@@ -660,18 +656,18 @@ var globalCamera;
                 if (needRecreate) {
                     renderList.splice(0, renderList.length);
 
-                    for (var i=0; i<item.renderList.length; i++) {
-                        renderList.push(realObjects[item.renderList[i]]);
+                    for (var i = 0; i < item.renderList.length; i++) {
+                        renderList.push(<BABYLON.AbstractMesh>realObjects[item.renderList[i]]);
                     }
                 }
 
             }
         },
         material: {
-            create: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+            create: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <Rnb.StandardMaterial>rawItem;
 
-                var r = realObjects[name] = new BABYLON.StandardMaterial(name, scene);
+                var r = realObjects[item.name] = new BABYLON.StandardMaterial(item.name, scene);
                 if (item.alpha) {
                     r.alpha = item.alpha;
                 }
@@ -685,37 +681,32 @@ var globalCamera;
                         r.diffuseTexture = realTexture;
                         if (texture.uScale) { realTexture.uScale = texture.uScale }
                         if (texture.vScale) { realTexture.vScale = texture.vScale }
-                        if (item.specularColor) { 
-                            r.specularColor = 
-                                new BABYLON.Color3(
-                                    item.specularColor.r, 
-                                    item.specularColor.g, 
-                                    item.specularColor.b
-                                ); 
+                        if (item.specularColor) {
+                            r.specularColor = new BABYLON.Color3(item.specularColor.r, item.specularColor.g, item.specularColor.b);
                         }
                     }
                 }
             },
-            update: function (rawItem : Rnb.GraphElement, name : string, dom, scene, realObjects) {
+            update: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <Rnb.ShadowGenerator>rawItem;
 
-                    // UNDONE: update material - need really diffing for that
+                // UNDONE: update material - need really diffing for that
             }
         },
         freeCamera: {
-            create: function(rawItem: Rnb.GraphElement, name: string, dom, scene, realObjects) {
+            create: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <Rnb.FreeCamera>rawItem;
 
-                var r = globalCamera = realObjects[name] = new BABYLON.FreeCamera(name, new BABYLON.Vector3(item.position.x, item.position.y, item.position.z), scene);
+                var r = globalCamera = realObjects[item.name] = new BABYLON.FreeCamera(item.name, new BABYLON.Vector3(item.position.x, item.position.y, item.position.z), scene);
                 r.setTarget(new BABYLON.Vector3(item.target.x, item.target.y, item.target.z));
                 if (item.attachControl) {
                     r.attachControl(document.getElementById(item.attachControl), true);
                 }
             },
-            update: function(rawItem: Rnb.GraphElement, name: string, dom, scene, realObjects) {
+            update: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <Rnb.FreeCamera>rawItem;
 
-                var r = realObjects[name];
+                var r = <BABYLON.FreeCamera>realObjects[item.name];
                 r.setTarget(new BABYLON.Vector3(item.target.x, item.target.y, item.target.z));
                 updatePosition(item, r, realObjects);
             },
@@ -747,22 +738,20 @@ var globalCamera;
     // so I opt'd for a simple {type:'composite'} which will be flattened before processing and completely
     // erased.
     //
-    function flatten(scene : Rnb.SceneGraph) : Rnb.SceneGraph {
-        var result : Rnb.SceneGraph = {};
-        var keys = Object.keys(scene);
-        for (var i=0; i<keys.length; i++) {
-            var name = keys[i];
-            var value = scene[name];
-            if (scene[name].type == 'composite') {
-                var compKeys = Object.keys(value);
-                for (var i2=0; i2<compKeys.length; i2++) {
-                    if (compKeys[i2] != 'type') {
-                        result[compKeys[i2]] = value[compKeys[i2]];
-                    }
+    function flatten(scene: Rnb.SceneGraph): Rnb.FlatSceneGraph {
+        var result: Rnb.FlatSceneGraph = [];
+        for (var i = 0; i < scene.length; i++) {
+            var value = scene[i];
+            if (value instanceof Array) {
+                // undone: nested composites
+                //
+                var composite = <Rnb.SceneGraph>value;
+                for (var i2 = 0; i2 < composite.length; i2++) {
+                    result.push(<Rnb.GraphElement>composite[i2]);
                 }
             }
             else {
-                result[name] = scene[name];
+                result.push(<Rnb.GraphElement>value);
             }
         }
         return result;
@@ -771,75 +760,93 @@ var globalCamera;
     // functions in the graph allow for lazy evaluation and graph queries, the common
     // one I hit was the desire to get a list of all XXX elements to create shadows
     //
-    function resolveFunctions(scene : Rnb.SceneGraph) : Rnb.SceneGraph {
-        var result : Rnb.SceneGraph = {};
-        var keys = Object.keys(scene);
-        for (var i=0; i<keys.length; i++) {
-            var name = keys[i];
-            var value = scene[name];
+    function resolveFunctions(scene: Rnb.FlatSceneGraph): Rnb.FlatSceneGraph {
+        var result: Rnb.FlatSceneGraph = [];
+        for (var i = 0; i < scene.length; i++) {
+            var value = scene[i];
             if (value) {
                 var childKeys = Object.keys(value);
-                for (var i2=0; i2<childKeys.length; i2++) {
+                for (var i2 = 0; i2 < childKeys.length; i2++) {
                     if (value[childKeys[i2]] instanceof Function) {
                         value[childKeys[i2]] = value[childKeys[i2]](scene);
                     }
                 }
             }
-            result[name] = value;
+            result.push(value);
         }
         return result;
     }
 
     // Incredibly niave implementation of DIFF... really this should just be replaced
     // by React, i need to see how hard that would be with my own custom OM as the
-    // backend/DOM
+    // backend/DOM.
     //
-    function diff(master : Rnb.SceneGraph, newScene : Rnb.SceneGraph) : Rnb.SceneGraph {
+    // When this switched from a record diff (SceneGraph used to be a record) this introduced
+    // another side effect - reordering of elements will end up with extra delete/create, this
+    // isn't desirable.
+    //
+    function diff(master: Rnb.FlatSceneGraph, newScene: Rnb.SceneGraph): Rnb.FlatSceneGraph {
 
-        newScene = resolveFunctions(flatten(newScene));
+        var newFlat = resolveFunctions(flatten(newScene));
+
         if (!master) {
-            var keys = Object.keys(newScene);
-            for (var i=0; i<keys.length; i++) {
-                newScene[keys[i]].action = "create";
+            for (var i = 0; i < newFlat.length; i++) {
+                (<Rnb.GraphElement>newFlat[i]).action = "create";
             }
-            return newScene;
+            return newFlat;
         }
         else {
-            var result : Rnb.SceneGraph = {};
+            var result: Rnb.FlatSceneGraph = [];
 
-            var masterKeys = Object.keys(master);
-            var keys = Object.keys(newScene);
-            for (var i=0; i<keys.length; i++) {
-                var name = keys[i];
+            var masterIndex = 0;
+            var newIndex = 0;
+            for (newIndex = 0; newIndex < newFlat.length; newIndex++) {
+                var foundMatch = false;
+                for (var masterSearch = 0; !foundMatch && masterSearch + masterIndex < master.length; masterSearch++) {
+                    // found match, diff the two and advance "masterIndex" up to current
+                    //
+                    if (master[masterSearch + masterIndex].name == newFlat[newIndex].name
+                        && master[masterSearch + masterIndex].type == newFlat[newIndex].type) {
+                        foundMatch = true;
 
-                var n = newScene[name];
-                var o = master[name];
+                        // first, push the consumed items, to preserve order
+                        //
+                        for (var i = 0; i < masterSearch; i++) {
+                            var del = master[masterIndex++];
+                            del.action = "delete";
+                            result.push(del);
+                        }
 
-                var type = (n && n.type) || (o && o.type);
-                var diff_handler = handlers[type].diff;
-                if (diff_handler) {
-                    result[name] = diff_handler(n, o);
-                    if (!result[name]) { throw "bad diff handler!"; }
+                        // second, diff the two items, now we are up to "current"
+                        //
+                        var n = newFlat[newIndex];
+                        var o = master[masterIndex++];
+
+                        var diff_handler = handlers[o.type].diff;
+                        if (diff_handler) {
+                            result.push(diff_handler(n, o));
+                        }
+                        else {
+                            n.action = "update";
+                            result.push(n);
+                        }
+                    }
                 }
-                else {
-                    if (!o) {
-                        result[name] = n;
-                        result[name].action = "create";
-                    }
-                    else {
-                        result[name] = n;
-                        result[name].action = "update";
-                    }
+
+                if (!foundMatch) {
+                    newFlat[newIndex].action = "create";
+                    result.push(newFlat[newIndex]);
                 }
             }
 
-            for (var i=0; i<masterKeys.length; i++) {
-                var name = masterKeys[i];
-                if (!newScene[name]) {
-                    result[name] = master[name];
-                    result[name].action = "delete";
-                }
+            // run to the end of master for any non-consumed items and mark them for deletion
+            //
+            for (; masterIndex < master.length; masterIndex++) {
+                var del = master[masterIndex];
+                del.action = "delete";
+                result.push(del);
             }
+
             return result;
         }
     };
@@ -848,21 +855,19 @@ var globalCamera;
     // Poorly factored and horribly inneficient. This started as 20 lines, and kept growing. 
     // Desparately needs refactoring and some design work
     //
-    function applyActions(dom, scene, realObjects) {
-        var keys = Object.keys(dom);
-        var result = { };
+    function applyActions(dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects) {
+        var result = [];
 
         var updateCount = 0;
 
-        for (var i=0; i<keys.length; i++) {
-            var name = keys[i];
-            var item = dom[name];
+        for (var i = 0; i < dom.length; i++) {
+            var item = dom[i];
 
             // hack, hack, hack... 
             //
             if (updateCount > MAX_UPDATES) {
                 if (item.action == "update" || item.action == "delete") {
-                    result[name] = item;
+                    result.push(item);
                 }
                 continue;
             }
@@ -872,21 +877,21 @@ var globalCamera;
                     updateCount++;
 
                     delete item.action;
-                    handlers[item.type].create(item, name, dom, scene, realObjects);
-                    result[name] = item;
+                    handlers[item.type].create(item, dom, scene, realObjects);
+                    result.push(item);
                     break;
                 case "update":
                     delete item.action;
-                    handlers[item.type].update(item, name, dom, scene, realObjects);
-                    result[name] = item;
+                    handlers[item.type].update(item, dom, scene, realObjects);
+                    result.push(item);
                     break;
                 case "delete":
                     updateCount++;
-                    realObjects[name].dispose();
-                    delete realObjects[name];
-                    break;    
+                    realObjects[item.name].dispose();
+                    delete realObjects[item.name];
+                    break;
                 default:
-                    result[name] = item;
+                    result.push(item);
                     break;
             }
         }
@@ -904,8 +909,8 @@ var globalCamera;
         var updateButton = <HTMLInputElement>(document.getElementById("updateButton"));
 
         var engine = new BABYLON.Engine(canvas, true);
-        var lastDom = null;
-        var realObjects = {};
+        var lastDom : Rnb.FlatSceneGraph = null;
+        var realObjects : RealObjectsCache = {};
         var model = JSON.parse(modelInput.value);
         updateButton.addEventListener("click", () => { try { model = JSON.parse(modelInput.value); } catch (e) { } });
         modelInput.addEventListener("keyup", () => { try { model = JSON.parse(modelInput.value); } catch (e) { } });
@@ -913,7 +918,7 @@ var globalCamera;
 
         var scene = new BABYLON.Scene(engine);
 
-        var updateFrame = function () {
+        var updateFrame = function() {
             lastDom = diff(lastDom, App.render(frameCount++, model));
             lastDom = applyActions(lastDom, scene, realObjects);
             document.getElementById("domOutput").innerHTML = JSON.stringify(lastDom, undefined, 2);
@@ -921,13 +926,13 @@ var globalCamera;
 
         updateFrame();
 
-        engine.runRenderLoop(function () {
+        engine.runRenderLoop(function() {
             updateFrame();
             scene.render();
         });
 
-        window.addEventListener("resize", function () {
-          engine.resize();
+        window.addEventListener("resize", function() {
+            engine.resize();
         });
     }));
-})();
+}

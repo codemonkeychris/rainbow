@@ -10,42 +10,52 @@ match with minimal cost.
 
 ```js
 function render() {
-    return {
-        camera1: {
+    return [
+        {
+            name: 'camera1',
             type: 'freeCamera',
-            x: 5, 
-            y: 5, 
-            z: -10,
+            relativeTo: "$origin",
+            position: { x: 5, y: 5, z: -10 },
             target: {x:0, y:0, z:0}
         },
-        light1 : {
+        {
+            name: 'light1',
             type: 'directionalLight',
-            x: 5, 
-            y: 5, 
-            z: -10,
+            relativeTo: "$origin",
+            position: { x: 5, y: 5, z: -10 },
             direction: {x:-1, y:-1, z:10},
             intensity: .7,
             diffuse: {r:.9, g:.9, b:1},
             specular: {r:1, g:1, b:1},
         },
-        sphere1: {
+        {
+            name: 'sphere1',
             type: 'sphere',
-            x: 0,
-            y: 0,
-            z: 0,
+            relativeTo: "$origin",
+            position: { x: 0, y: 0, z: 0 }, 
             size: 3
         }
-    };
+    ];
 };
 ```
 ![Rendering a simple scene](readme_preview.jpg "Rendering a simple scene")
+
+## A note about position and relativeTo
+All objects in the system should be relativeTo another object. The design is to model
+after holograms, where they are always "pinned" to an object in 3D space. The only exception
+(in holograms) is the surface reconstruction - that is pinned to the real world. Since
+we don't have actual reconstructed surfaces, the "$origin" hack denotes objects positioned in
+fixed space. "$camera" will position objects relative to your camera, which is the equivalent
+of pinning an object to the user's eyes.
+
 
 ## Functional evaluation
 Of course, since it's pure JS objects, you create create these with functions.
 
 ```js
-function light() {
+function light(name) {
     return {
+        name: name,
         type: 'directionalLight',
         x: 5, 
         y: 5, 
@@ -56,8 +66,9 @@ function light() {
         specular: {r:1, g:1, b:1},
     };
 }
-function sphere(size, x, y, z) {
+function sphere(name, size, x, y, z) {
     return {
+        name: name,
         type: 'sphere',
         x: x,
         y: y,
@@ -67,17 +78,18 @@ function sphere(size, x, y, z) {
 }
 
 function render() {
-    return {
-        camera1: {
+    return [
+        {
+            name: 'camera1',
             type: 'freeCamera',
             x: 5, 
             y: 5, 
             z: -10,
             target: {x:0, y:0, z:0}
         },
-        light1 : light(),
-        sphere1: sphere(3, 0, 0, 0) 
-    };
+        light('light1'),
+        sphere('sphere1', 3, 0, 0, 0) 
+    ];
 };
 ```
 

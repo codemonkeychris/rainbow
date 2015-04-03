@@ -17,6 +17,10 @@ html, body {
     display: flex;
 }
 
+#modelInput {
+    width: 400px;
+}
+
 #domOutput {
     flex: auto;
     white-space: pre;

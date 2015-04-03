@@ -3,7 +3,7 @@
 ///<reference path='Babylon.js-2.0/babylon.2.0.d.ts' />
 
 module App {
-    var HOLO_ALPHA = .6;
+    var HOLO_ALPHA = .8;
 
     /**
      * Returns a two light system, one light at cameraPos, the other a top down ambient light
@@ -35,7 +35,7 @@ module App {
             }
         ];
     }
-    function hudControl(name : string, material : string, x : number) {
+    function hudControl(name : string, hoverModel : string, material : string, hoverMaterial : string, x : number) {
         return {
             name: name,
             type: 'sphere',
@@ -43,18 +43,20 @@ module App {
             relativeTo: '$camera',
             diameter: .4,
             segments: 12,
-            material: material
+            material: hoverModel == name ? hoverMaterial : material
         }
     }
-    function hud(name: string) : Rnb.SceneGraph {
+    function hud(name: string, hoverModel : string) : Rnb.SceneGraph {
         var materialName = name + '-mat1';
+        var hoverMaterialName = name + '-mat2';
         return [
             { name: materialName, type: 'material', diffuseColor : { r:.2, g:0.2, b:1}, alpha: HOLO_ALPHA },
-            hudControl(name + "-hud1", materialName, -1),
-            hudControl(name + "-hud2", materialName, -.5),
-            hudControl(name + "-hud3", materialName, 0),
-            hudControl(name + "-hud4", materialName, .5),
-            hudControl(name + "-hud5", materialName, 1)
+            { name: hoverMaterialName, type: 'material', diffuseColor : { r:1, g:0.2, b:.2}, alpha: HOLO_ALPHA },
+            hudControl(name + "-hud1", hoverModel, materialName, hoverMaterialName, -1),
+            hudControl(name + "-hud2", hoverModel, materialName, hoverMaterialName, -.5),
+            hudControl(name + "-hud3", hoverModel, materialName, hoverMaterialName, 0),
+            hudControl(name + "-hud4", hoverModel, materialName, hoverMaterialName, .5),
+            hudControl(name + "-hud5", hoverModel, materialName, hoverMaterialName, 1)
         ];
     }    
     function diffuse(name: string, url : string) : Rnb.StandardMaterial { 
@@ -176,6 +178,30 @@ module App {
         };
     }
 
+    // UNDONE: need real click registration
+    //
+    export function clicked(model) {
+        var h = model.hover;
+        switch (model.hover) {
+            case "hud1-hud1":
+                model.values.push(2);
+                break;
+            case "hud1-hud2":
+                model.values.push(5);
+                break;
+            case "hud1-hud3":
+                model.values.splice(model.values.length - 1, 1);
+                break;
+            case "hud1-hud4":
+                model = { values: [1, 2, 3, 4, 5] };
+                break;
+            case "hud1-hud5":
+                model = { values: [Math.random() * 5, Math.random() * 5, Math.random() * 5, Math.random() * 5, Math.random() * 5, Math.random() * 5] };
+                break;
+        }
+        model.hover = h;
+        return model;
+    }
     export function render(time, model) : Rnb.SceneGraph {
         var cameraX = (Math.sin(time/40) * 10);
         var cameraY = 5;
@@ -201,6 +227,13 @@ module App {
             basicLights({x: cameraX, y: cameraY, z: cameraZ}),
             holo_diffuse('holo_stone', 'seamless_stone_texture.jpg'),
             <Rnb.Material>{
+                name: 'selected',
+                type: 'material',
+                diffuseColor: { r: 1, g: 0, b: 0 },
+                specularColor: { r: 1, g: 0, b: 0 },
+                alpha: HOLO_ALPHA
+            },
+            <Rnb.Material>{
                 name: 'dirt',
                 type: 'material',
                 specularColor: { r: 0, g: 0, b: 0 },
@@ -208,18 +241,18 @@ module App {
             },
             groundFromHeightMap('ground1', 50, 50, 0, 3, "heightMap.png", "dirt"),
             table('table1', {x:0,y:0,z:0}, 'ground1'),
-            model.map((value, index) => <Rnb.Box>{
+            model.values.map((value, index) => <Rnb.Box>{
                 name: 'vis(' + index + ')',
                 type: 'box',
                 position: {
-                    x: index - model.length / 2,
+                    x: index - model.values.length / 2,
                     y: (value / 4),
                     z: 0
                 },
                 relativeTo: "table1-v-top",
                 size: 1,
                 scaling: { x: .8, y: value / 2, z: .8 },
-                material: "holo_stone"
+                material: model.hover === 'vis(' + index + ')' ? "selected" : "holo_stone"
             }),
 
             <Rnb.Sphere>{
@@ -233,7 +266,7 @@ module App {
                 material: "text1"
             },
 
-            hud('hud1'),
+            hud('hud1', model.hover),
 
             shadowFor('shadow1', 'light2', select("table1-v")),
             shadowFor('shadow2', 'light1', select("table1-v"))
@@ -551,7 +584,7 @@ module Rnb.Runtime {
                 updateGeometryProps(item, true, realObjects, r);
             },
             update: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
-                updateGeometryProps(<Rnb.Box>rawItem, false, realObjects, realObjects[rawItem.name]);
+                updateGeometryProps(<Rnb.Box>rawItem, true, realObjects, realObjects[rawItem.name]);
             }
         },
         sphere: {
@@ -563,7 +596,7 @@ module Rnb.Runtime {
             },
             update: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <Rnb.Sphere>rawItem;
-                updateGeometryProps(item, false, realObjects, realObjects[item.name]);
+                updateGeometryProps(item, true, realObjects, realObjects[item.name]);
             }
         },
         ground: {
@@ -953,14 +986,39 @@ module Rnb.Runtime {
         var updateButton = <HTMLInputElement>(document.getElementById("updateButton"));
 
         var engine = new BABYLON.Engine(canvas, true);
+        var scene = new BABYLON.Scene(engine);
         var lastDom : Rnb.FlatSceneGraph = null;
         var realObjects : RealObjectsCache = {};
         var model = JSON.parse(modelInput.value);
         updateButton.addEventListener("click", () => { try { model = JSON.parse(modelInput.value); } catch (e) { } });
         modelInput.addEventListener("keyup", () => { try { model = JSON.parse(modelInput.value); } catch (e) { } });
+        
+        canvas.addEventListener("mousemove", (evt) => {
+            var pickResult = scene.pick(evt.offsetX, evt.offsetY, (mesh) => {
+                return mesh.name.indexOf("ground") == -1;
+            });
+            if (pickResult.hit) {
+                if (model.hover !== pickResult.pickedMesh.name) {
+                    model.hover = pickResult.pickedMesh.name;
+                    modelInput.value = JSON.stringify(model);
+                }
+            }
+            else {
+                if (model.hover) {
+                    model.hover = "";
+                    modelInput.value = JSON.stringify(model);
+                }
+            }
+        });
+        canvas.addEventListener("mouseup", (evt) => {
+            if (model.hover) {
+                model = App.clicked(model);
+                modelInput.value = JSON.stringify(model);
+            }
+        });
+
         var frameCount = 0;
 
-        var scene = new BABYLON.Scene(engine);
 
         var updateFrame = function() {
             lastDom = diff(lastDom, App.render(frameCount++, model));

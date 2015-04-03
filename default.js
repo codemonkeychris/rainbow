@@ -3,7 +3,7 @@
 ///<reference path='Babylon.js-2.0/babylon.2.0.d.ts' />
 var App;
 (function (App) {
-    var HOLO_ALPHA = .6;
+    var HOLO_ALPHA = .8;
     /**
      * Returns a two light system, one light at cameraPos, the other a top down ambient light
      */
@@ -34,7 +34,7 @@ var App;
             }
         ];
     }
-    function hudControl(name, material, x) {
+    function hudControl(name, hoverModel, material, hoverMaterial, x) {
         return {
             name: name,
             type: 'sphere',
@@ -42,18 +42,20 @@ var App;
             relativeTo: '$camera',
             diameter: .4,
             segments: 12,
-            material: material
+            material: hoverModel == name ? hoverMaterial : material
         };
     }
-    function hud(name) {
+    function hud(name, hoverModel) {
         var materialName = name + '-mat1';
+        var hoverMaterialName = name + '-mat2';
         return [
             { name: materialName, type: 'material', diffuseColor: { r: .2, g: 0.2, b: 1 }, alpha: HOLO_ALPHA },
-            hudControl(name + "-hud1", materialName, -1),
-            hudControl(name + "-hud2", materialName, -.5),
-            hudControl(name + "-hud3", materialName, 0),
-            hudControl(name + "-hud4", materialName, .5),
-            hudControl(name + "-hud5", materialName, 1)
+            { name: hoverMaterialName, type: 'material', diffuseColor: { r: 1, g: 0.2, b: .2 }, alpha: HOLO_ALPHA },
+            hudControl(name + "-hud1", hoverModel, materialName, hoverMaterialName, -1),
+            hudControl(name + "-hud2", hoverModel, materialName, hoverMaterialName, -.5),
+            hudControl(name + "-hud3", hoverModel, materialName, hoverMaterialName, 0),
+            hudControl(name + "-hud4", hoverModel, materialName, hoverMaterialName, .5),
+            hudControl(name + "-hud5", hoverModel, materialName, hoverMaterialName, 1)
         ];
     }
     function diffuse(name, url) {
@@ -167,6 +169,31 @@ var App;
             renderCallback: 'function callback(texture) { texture.drawText("E", null, 80, "bold 70px Segoe UI", "white", "#555555"); }; callback;'
         };
     }
+    // UNDONE: need real click registration
+    //
+    function clicked(model) {
+        var h = model.hover;
+        switch (model.hover) {
+            case "hud1-hud1":
+                model.values.push(2);
+                break;
+            case "hud1-hud2":
+                model.values.push(5);
+                break;
+            case "hud1-hud3":
+                model.values.splice(model.values.length - 1, 1);
+                break;
+            case "hud1-hud4":
+                model = { values: [1, 2, 3, 4, 5] };
+                break;
+            case "hud1-hud5":
+                model = { values: [Math.random() * 5, Math.random() * 5, Math.random() * 5, Math.random() * 5, Math.random() * 5, Math.random() * 5] };
+                break;
+        }
+        model.hover = h;
+        return model;
+    }
+    App.clicked = clicked;
     function render(time, model) {
         var cameraX = (Math.sin(time / 40) * 10);
         var cameraY = 5;
@@ -191,6 +218,13 @@ var App;
             basicLights({ x: cameraX, y: cameraY, z: cameraZ }),
             holo_diffuse('holo_stone', 'seamless_stone_texture.jpg'),
             {
+                name: 'selected',
+                type: 'material',
+                diffuseColor: { r: 1, g: 0, b: 0 },
+                specularColor: { r: 1, g: 0, b: 0 },
+                alpha: HOLO_ALPHA
+            },
+            {
                 name: 'dirt',
                 type: 'material',
                 specularColor: { r: 0, g: 0, b: 0 },
@@ -198,18 +232,18 @@ var App;
             },
             groundFromHeightMap('ground1', 50, 50, 0, 3, "heightMap.png", "dirt"),
             table('table1', { x: 0, y: 0, z: 0 }, 'ground1'),
-            model.map(function (value, index) { return {
+            model.values.map(function (value, index) { return {
                 name: 'vis(' + index + ')',
                 type: 'box',
                 position: {
-                    x: index - model.length / 2,
+                    x: index - model.values.length / 2,
                     y: (value / 4),
                     z: 0
                 },
                 relativeTo: "table1-v-top",
                 size: 1,
                 scaling: { x: .8, y: value / 2, z: .8 },
-                material: "holo_stone"
+                material: model.hover === 'vis(' + index + ')' ? "selected" : "holo_stone"
             }; }),
             {
                 name: "vis(-1)",
@@ -221,7 +255,7 @@ var App;
                 segments: 12,
                 material: "text1"
             },
-            hud('hud1'),
+            hud('hud1', model.hover),
             shadowFor('shadow1', 'light2', select("table1-v")),
             shadowFor('shadow2', 'light1', select("table1-v"))
         ];
@@ -311,7 +345,7 @@ var Rnb;
                     updateGeometryProps(item, true, realObjects, r);
                 },
                 update: function (rawItem, dom, scene, realObjects) {
-                    updateGeometryProps(rawItem, false, realObjects, realObjects[rawItem.name]);
+                    updateGeometryProps(rawItem, true, realObjects, realObjects[rawItem.name]);
                 }
             },
             sphere: {
@@ -322,7 +356,7 @@ var Rnb;
                 },
                 update: function (rawItem, dom, scene, realObjects) {
                     var item = rawItem;
-                    updateGeometryProps(item, false, realObjects, realObjects[item.name]);
+                    updateGeometryProps(item, true, realObjects, realObjects[item.name]);
                 }
             },
             ground: {
@@ -669,6 +703,7 @@ var Rnb;
             var modelInput = (document.getElementById("modelInput"));
             var updateButton = (document.getElementById("updateButton"));
             var engine = new BABYLON.Engine(canvas, true);
+            var scene = new BABYLON.Scene(engine);
             var lastDom = null;
             var realObjects = {};
             var model = JSON.parse(modelInput.value);
@@ -686,8 +721,30 @@ var Rnb;
                 catch (e) {
                 }
             });
+            canvas.addEventListener("mousemove", function (evt) {
+                var pickResult = scene.pick(evt.offsetX, evt.offsetY, function (mesh) {
+                    return mesh.name.indexOf("ground") == -1;
+                });
+                if (pickResult.hit) {
+                    if (model.hover !== pickResult.pickedMesh.name) {
+                        model.hover = pickResult.pickedMesh.name;
+                        modelInput.value = JSON.stringify(model);
+                    }
+                }
+                else {
+                    if (model.hover) {
+                        model.hover = "";
+                        modelInput.value = JSON.stringify(model);
+                    }
+                }
+            });
+            canvas.addEventListener("mouseup", function (evt) {
+                if (model.hover) {
+                    model = App.clicked(model);
+                    modelInput.value = JSON.stringify(model);
+                }
+            });
             var frameCount = 0;
-            var scene = new BABYLON.Scene(engine);
             var updateFrame = function () {
                 lastDom = diff(lastDom, App.render(frameCount++, model));
                 lastDom = applyActions(lastDom, scene, realObjects);

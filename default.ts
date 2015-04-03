@@ -133,22 +133,22 @@ module App {
                 scaling: { x: width, y: topThickness, z: depth },
                 material: materialName
             },
-            tableLeg('leftfront', { 
+            tableLeg('v-leftfront', { 
                     x: position.x - (width / 2) + (legTopSize / 2), 
                     y: position.y + (legHeight / 2) - (topThickness / 2), 
                     z: position.z - (depth / 2) + (legTopSize / 2) 
                 }),
-            tableLeg('rightfront', { 
+            tableLeg('v-rightfront', { 
                     x: position.x + (width / 2) - (legTopSize / 2), 
                     y: position.y + (legHeight / 2) - (topThickness / 2), 
                     z: position.z - (depth / 2) + (legTopSize / 2) 
                 }),
-            tableLeg('leftback', { 
+            tableLeg('v-leftback', { 
                     x: position.x - (width / 2) + (legTopSize / 2), 
                     y: position.y + (legHeight / 2) - (topThickness / 2), 
                     z: position.z + (depth / 2) - (legTopSize / 2)
                 }),
-            tableLeg('rightback', { 
+            tableLeg('v-rightback', { 
                     x: position.x + (width / 2) - (legTopSize / 2), 
                     y: position.y + (legHeight / 2) - (topThickness / 2), 
                     z: position.z + (depth / 2) - (legTopSize / 2)

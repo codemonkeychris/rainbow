@@ -46,9 +46,9 @@ module App {
         var materialName = name + '-mat1';
         var hoverMaterialName = name + '-mat2';
         return [
-            textMaterial('plus', '+'),
-            textMaterial('minus', '-'),
-            textMaterial('random', 'R'),
+            ballTextMaterial('plus', '+'),
+            ballTextMaterial('minus', '-'),
+            ballTextMaterial('random', 'R'),
             { name: hoverMaterialName, type: 'material', diffuseColor: { r: 1, g: 0.2, b: .2 }, alpha: HOLO_ALPHA },
             hudControl(name + "-hud1", hoverModel, 'plus', hoverMaterialName, -.5),
             hudControl(name + "-hud2", hoverModel, 'minus', hoverMaterialName, 0),
@@ -163,7 +163,7 @@ module App {
         return function(x) { return x.filter(item => item.name.indexOf(pattern) != -1).map(item=> item.name); };
     }
 
-    function text(name: string, msg: string) {
+    function ballText(name: string, msg: string) {
         return <Rnb.DynamicTexture>{
             type: 'dynamicTexture',
             name: name,
@@ -176,13 +176,36 @@ module App {
             renderCallback: 'function callback(texture) { texture.drawText("' + msg + '", null, 80, "bold 70px Segoe UI", "white", "#555555"); }; callback;'
         };
     }
-    function textMaterial(name: string, msg: string) {
+    function ballTextMaterial(name: string, msg: string) {
         return <Rnb.Material>{
             name: name,
             type: 'material',
             specularColor: { r: 0, g: 0, b: 0 },
             alpha: HOLO_ALPHA,
-            diffuseTexture: text(name + '-text', msg)
+            diffuseTexture: ballText(name + '-text', msg)
+        };
+    }
+
+    function statusText(name: string, msg1: string) {
+        return <Rnb.DynamicTexture>{
+            type: 'dynamicTexture',
+            name: name,
+            width: 512,
+            height: 128,
+            vScale: 1,
+            renderCallback: 
+            'function callback(texture) { \n' + 
+            '    texture.drawText("' + msg1 + '", 0, 40, "bold 20px Consolas", "white", "#555555"); \n' +
+            '}; callback;'
+        };
+    }
+    function statusTextMaterial(name: string, msg1: string) {
+        return <Rnb.Material>{
+            name: name,
+            type: 'material',
+            specularColor: { r: 0, g: 0, b: 0 },
+            alpha: HOLO_ALPHA,
+            diffuseTexture: statusText(name + '-text', msg1)
         };
     }
 
@@ -198,7 +221,7 @@ module App {
                 model.values.splice(model.values.length - 1, 1);
                 break;
             case "hud1-hud3":
-                model = { values: model.values.map(x=> Math.random() * 5) };
+                model = { values: model.values.map(x=> Math.round(Math.random() * 5)) };
                 break;
         }
         model.hover = h;
@@ -213,6 +236,8 @@ module App {
         var columns = 3;
         var rows = (model.values.length / columns) | 0;
 
+        var hudToken = JSON.stringify(model.values);
+
         return <Rnb.SceneGraph>[
             <Rnb.FreeCamera>{
                 name: 'camera1',
@@ -222,7 +247,7 @@ module App {
                 target: { x: 0, y: 5, z: 0 },
                 attachControl: "renderCanvas"
             },
-            textMaterial('text1', 'E'),
+            ballTextMaterial('text1', 'E'),
             basicLights({ x: cameraX, y: cameraY, z: cameraZ }),
             holo_diffuse('holo_stone', 'seamless_stone_texture.jpg'),
             <Rnb.Material>{
@@ -240,6 +265,17 @@ module App {
             },
             groundFromHeightMap('ground1', 50, 50, 0, 3, "heightMap.png", "dirt"),
             table('table1', { x: 0, y: 0, z: 0 }, 'ground1'),
+            statusTextMaterial(hudToken, JSON.stringify(model.values)),
+            <Rnb.Plane>{
+                name: 'status',
+                type: 'plane',
+                position: {x:-.25,y:1, z:3},
+                // position: {x:0,y:4, z:0},
+                scaling: {x:1.25, y:.25, z:1},
+                relativeTo: '$camera',
+                size: 2,
+                material: hudToken
+            },
             model.values.map((value, index) => <Rnb.Cylinder>{
                 name: 'vis(' + index + ')',
                 type: 'cylinder',
@@ -405,6 +441,9 @@ module Rnb {
         width: number;
         depth: number;
         segments: number;
+    }
+    export interface Plane extends Geometry {
+        size: number;
     }
     export interface Box extends Geometry {
         size: number;
@@ -588,6 +627,18 @@ module Rnb.Runtime {
     }
 
     var handlers: HandlerBlock = {
+        plane: {
+            create: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
+                var item = <Rnb.Plane>rawItem;
+
+                var r = realObjects[item.name] = BABYLON.Mesh.CreatePlane(item.name, item.size, scene);
+                updateGeometryProps(item, true, realObjects, r);
+            },
+            update: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
+                updateGeometryProps(<Rnb.Plane>rawItem, true, realObjects, realObjects[rawItem.name]);
+            }
+            // UNDONE: diff for mesh recreate
+        },
         box: {
             create: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <Rnb.Box>rawItem;

@@ -45,9 +45,9 @@ var App;
         var materialName = name + '-mat1';
         var hoverMaterialName = name + '-mat2';
         return [
-            textMaterial('plus', '+'),
-            textMaterial('minus', '-'),
-            textMaterial('random', 'R'),
+            ballTextMaterial('plus', '+'),
+            ballTextMaterial('minus', '-'),
+            ballTextMaterial('random', 'R'),
             { name: hoverMaterialName, type: 'material', diffuseColor: { r: 1, g: 0.2, b: .2 }, alpha: HOLO_ALPHA },
             hudControl(name + "-hud1", hoverModel, 'plus', hoverMaterialName, -.5),
             hudControl(name + "-hud2", hoverModel, 'minus', hoverMaterialName, 0),
@@ -155,7 +155,7 @@ var App;
             return x.filter(function (item) { return item.name.indexOf(pattern) != -1; }).map(function (item) { return item.name; });
         };
     }
-    function text(name, msg) {
+    function ballText(name, msg) {
         return {
             type: 'dynamicTexture',
             name: name,
@@ -168,13 +168,32 @@ var App;
             renderCallback: 'function callback(texture) { texture.drawText("' + msg + '", null, 80, "bold 70px Segoe UI", "white", "#555555"); }; callback;'
         };
     }
-    function textMaterial(name, msg) {
+    function ballTextMaterial(name, msg) {
         return {
             name: name,
             type: 'material',
             specularColor: { r: 0, g: 0, b: 0 },
             alpha: HOLO_ALPHA,
-            diffuseTexture: text(name + '-text', msg)
+            diffuseTexture: ballText(name + '-text', msg)
+        };
+    }
+    function statusText(name, msg1) {
+        return {
+            type: 'dynamicTexture',
+            name: name,
+            width: 512,
+            height: 128,
+            vScale: 1,
+            renderCallback: 'function callback(texture) { \n' + '    texture.drawText("' + msg1 + '", 0, 40, "bold 20px Consolas", "white", "#555555"); \n' + '}; callback;'
+        };
+    }
+    function statusTextMaterial(name, msg1) {
+        return {
+            name: name,
+            type: 'material',
+            specularColor: { r: 0, g: 0, b: 0 },
+            alpha: HOLO_ALPHA,
+            diffuseTexture: statusText(name + '-text', msg1)
         };
     }
     // UNDONE: need real click registration
@@ -189,7 +208,7 @@ var App;
                 model.values.splice(model.values.length - 1, 1);
                 break;
             case "hud1-hud3":
-                model = { values: model.values.map(function (x) { return Math.random() * 5; }) };
+                model = { values: model.values.map(function (x) { return Math.round(Math.random() * 5); }) };
                 break;
         }
         model.hover = h;
@@ -203,6 +222,7 @@ var App;
         var sphereScale = .5 + Math.abs(Math.sin(time / 20)) * 2;
         var columns = 3;
         var rows = (model.values.length / columns) | 0;
+        var hudToken = JSON.stringify(model.values);
         return [
             {
                 name: 'camera1',
@@ -212,7 +232,7 @@ var App;
                 target: { x: 0, y: 5, z: 0 },
                 attachControl: "renderCanvas"
             },
-            textMaterial('text1', 'E'),
+            ballTextMaterial('text1', 'E'),
             basicLights({ x: cameraX, y: cameraY, z: cameraZ }),
             holo_diffuse('holo_stone', 'seamless_stone_texture.jpg'),
             {
@@ -230,6 +250,17 @@ var App;
             },
             groundFromHeightMap('ground1', 50, 50, 0, 3, "heightMap.png", "dirt"),
             table('table1', { x: 0, y: 0, z: 0 }, 'ground1'),
+            statusTextMaterial(hudToken, JSON.stringify(model.values)),
+            {
+                name: 'status',
+                type: 'plane',
+                position: { x: -.25, y: 1, z: 3 },
+                // position: {x:0,y:4, z:0},
+                scaling: { x: 1.25, y: .25, z: 1 },
+                relativeTo: '$camera',
+                size: 2,
+                material: hudToken
+            },
             model.values.map(function (value, index) { return {
                 name: 'vis(' + index + ')',
                 type: 'cylinder',
@@ -337,6 +368,16 @@ var Rnb;
             }
         }
         var handlers = {
+            plane: {
+                create: function (rawItem, dom, scene, realObjects) {
+                    var item = rawItem;
+                    var r = realObjects[item.name] = BABYLON.Mesh.CreatePlane(item.name, item.size, scene);
+                    updateGeometryProps(item, true, realObjects, r);
+                },
+                update: function (rawItem, dom, scene, realObjects) {
+                    updateGeometryProps(rawItem, true, realObjects, realObjects[rawItem.name]);
+                }
+            },
             box: {
                 create: function (rawItem, dom, scene, realObjects) {
                     var item = rawItem;

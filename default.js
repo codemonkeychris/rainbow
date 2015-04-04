@@ -320,11 +320,10 @@ var Rnb;
                     r.position.z = item.position.z;
                     break;
                 case "$camera":
-                    var matrix = globalCamera.getWorldMatrix();
-                    var place = BABYLON.Vector3.TransformCoordinates(new BABYLON.Vector3(item.position.x, item.position.y, item.position.z), matrix);
-                    r.position.x = place.x;
-                    r.position.y = place.y;
-                    r.position.z = place.z;
+                    r.parent = globalCamera;
+                    r.position.x = item.position.x;
+                    r.position.y = item.position.y;
+                    r.position.z = item.position.z;
                     break;
                 default:
                     var relative = realObjects[relativeTo];

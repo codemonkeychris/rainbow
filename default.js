@@ -49,13 +49,31 @@ var App;
         var materialName = name + '-mat1';
         var hoverMaterialName = name + '-mat2';
         return [
-            { name: materialName, type: 'material', diffuseColor: { r: .2, g: 0.2, b: 1 }, alpha: HOLO_ALPHA },
+            {
+                name: '+',
+                type: 'material',
+                specularColor: { r: 0, g: 0, b: 0 },
+                alpha: HOLO_ALPHA,
+                diffuseTexture: text('+-text', '+')
+            },
+            {
+                name: '-',
+                type: 'material',
+                specularColor: { r: 0, g: 0, b: 0 },
+                alpha: HOLO_ALPHA,
+                diffuseTexture: text('--text', '-')
+            },
+            {
+                name: 'R',
+                type: 'material',
+                specularColor: { r: 0, g: 0, b: 0 },
+                alpha: HOLO_ALPHA,
+                diffuseTexture: text('R-text', 'R')
+            },
             { name: hoverMaterialName, type: 'material', diffuseColor: { r: 1, g: 0.2, b: .2 }, alpha: HOLO_ALPHA },
-            hudControl(name + "-hud1", hoverModel, materialName, hoverMaterialName, -1),
-            hudControl(name + "-hud2", hoverModel, materialName, hoverMaterialName, -.5),
-            hudControl(name + "-hud3", hoverModel, materialName, hoverMaterialName, 0),
-            hudControl(name + "-hud4", hoverModel, materialName, hoverMaterialName, .5),
-            hudControl(name + "-hud5", hoverModel, materialName, hoverMaterialName, 1)
+            hudControl(name + "-hud1", hoverModel, '+', hoverMaterialName, -.5),
+            hudControl(name + "-hud2", hoverModel, '-', hoverMaterialName, 0),
+            hudControl(name + "-hud3", hoverModel, 'R', hoverMaterialName, .5)
         ];
     }
     function diffuse(name, url) {
@@ -159,14 +177,17 @@ var App;
             return x.filter(function (item) { return item.name.indexOf(pattern) != -1; }).map(function (item) { return item.name; });
         };
     }
-    function text(name) {
+    function text(name, msg) {
         return {
             type: 'dynamicTexture',
             name: name,
             width: 128,
             height: 128,
             wAng: Math.PI / 2,
-            renderCallback: 'function callback(texture) { texture.drawText("E", null, 80, "bold 70px Segoe UI", "white", "#555555"); }; callback;'
+            vScale: -1,
+            vOffset: -.25,
+            uOffset: -.1,
+            renderCallback: 'function callback(texture) { texture.drawText("' + msg + '", null, 80, "bold 70px Segoe UI", "white", "#555555"); }; callback;'
         };
     }
     // UNDONE: need real click registration
@@ -178,15 +199,9 @@ var App;
                 model.values.push(2);
                 break;
             case "hud1-hud2":
-                model.values.push(5);
-                break;
-            case "hud1-hud3":
                 model.values.splice(model.values.length - 1, 1);
                 break;
-            case "hud1-hud4":
-                model = { values: [1, 2, 3, 4, 5] };
-                break;
-            case "hud1-hud5":
+            case "hud1-hud3":
                 model = { values: [Math.random() * 5, Math.random() * 5, Math.random() * 5, Math.random() * 5, Math.random() * 5, Math.random() * 5] };
                 break;
         }
@@ -213,7 +228,7 @@ var App;
                 type: 'material',
                 specularColor: { r: 0, g: 0, b: 0 },
                 alpha: HOLO_ALPHA,
-                diffuseTexture: text('text1-text')
+                diffuseTexture: text('text1-text', 'E')
             },
             basicLights({ x: cameraX, y: cameraY, z: cameraZ }),
             holo_diffuse('holo_stone', 'seamless_stone_texture.jpg'),
@@ -700,27 +715,11 @@ var Rnb;
         //
         window.addEventListener("load", (function () {
             var canvas = document.getElementById("renderCanvas");
-            var modelInput = (document.getElementById("modelInput"));
-            var updateButton = (document.getElementById("updateButton"));
             var engine = new BABYLON.Engine(canvas, true);
             var scene = new BABYLON.Scene(engine);
             var lastDom = null;
             var realObjects = {};
-            var model = JSON.parse(modelInput.value);
-            updateButton.addEventListener("click", function () {
-                try {
-                    model = JSON.parse(modelInput.value);
-                }
-                catch (e) {
-                }
-            });
-            modelInput.addEventListener("keyup", function () {
-                try {
-                    model = JSON.parse(modelInput.value);
-                }
-                catch (e) {
-                }
-            });
+            var model = { values: [1, 2, 3, 4], hover: "" };
             canvas.addEventListener("mousemove", function (evt) {
                 var pickResult = scene.pick(evt.offsetX, evt.offsetY, function (mesh) {
                     return mesh.name.indexOf("ground") == -1;
@@ -728,27 +727,23 @@ var Rnb;
                 if (pickResult.hit) {
                     if (model.hover !== pickResult.pickedMesh.name) {
                         model.hover = pickResult.pickedMesh.name;
-                        modelInput.value = JSON.stringify(model);
                     }
                 }
                 else {
                     if (model.hover) {
                         model.hover = "";
-                        modelInput.value = JSON.stringify(model);
                     }
                 }
             });
             canvas.addEventListener("mouseup", function (evt) {
                 if (model.hover) {
                     model = App.clicked(model);
-                    modelInput.value = JSON.stringify(model);
                 }
             });
             var frameCount = 0;
             var updateFrame = function () {
                 lastDom = diff(lastDom, App.render(frameCount++, model));
                 lastDom = applyActions(lastDom, scene, realObjects);
-                document.getElementById("domOutput").innerHTML = JSON.stringify(lastDom, undefined, 2);
             };
             updateFrame();
             engine.runRenderLoop(function () {

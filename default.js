@@ -21,14 +21,10 @@ var App;
             },
             {
                 name: 'light2',
-                type: 'directionalLight',
-                relativeTo: "ground1",
-                position: { x: cameraPos.x, y: cameraPos.y * 2, z: cameraPos.z * 1.2 },
-                direction: {
-                    x: -cameraPos.x,
-                    y: -cameraPos.y,
-                    z: -cameraPos.z
-                },
+                type: 'pointLight',
+                relativeTo: "$camera",
+                position: { x: 0, y: 0, z: 0 },
+                intensity: .6,
                 diffuse: { r: .5, g: .5, b: .5 },
                 specular: { r: 1, g: 1, b: 1 }
             }
@@ -49,31 +45,13 @@ var App;
         var materialName = name + '-mat1';
         var hoverMaterialName = name + '-mat2';
         return [
-            {
-                name: '+',
-                type: 'material',
-                specularColor: { r: 0, g: 0, b: 0 },
-                alpha: HOLO_ALPHA,
-                diffuseTexture: text('+-text', '+')
-            },
-            {
-                name: '-',
-                type: 'material',
-                specularColor: { r: 0, g: 0, b: 0 },
-                alpha: HOLO_ALPHA,
-                diffuseTexture: text('--text', '-')
-            },
-            {
-                name: 'R',
-                type: 'material',
-                specularColor: { r: 0, g: 0, b: 0 },
-                alpha: HOLO_ALPHA,
-                diffuseTexture: text('R-text', 'R')
-            },
+            textMaterial('plus', '+'),
+            textMaterial('minus', '-'),
+            textMaterial('random', 'R'),
             { name: hoverMaterialName, type: 'material', diffuseColor: { r: 1, g: 0.2, b: .2 }, alpha: HOLO_ALPHA },
-            hudControl(name + "-hud1", hoverModel, '+', hoverMaterialName, -.5),
-            hudControl(name + "-hud2", hoverModel, '-', hoverMaterialName, 0),
-            hudControl(name + "-hud3", hoverModel, 'R', hoverMaterialName, .5)
+            hudControl(name + "-hud1", hoverModel, 'plus', hoverMaterialName, -.5),
+            hudControl(name + "-hud2", hoverModel, 'minus', hoverMaterialName, 0),
+            hudControl(name + "-hud3", hoverModel, 'random', hoverMaterialName, .5)
         ];
     }
     function diffuse(name, url) {
@@ -190,6 +168,15 @@ var App;
             renderCallback: 'function callback(texture) { texture.drawText("' + msg + '", null, 80, "bold 70px Segoe UI", "white", "#555555"); }; callback;'
         };
     }
+    function textMaterial(name, msg) {
+        return {
+            name: name,
+            type: 'material',
+            specularColor: { r: 0, g: 0, b: 0 },
+            alpha: HOLO_ALPHA,
+            diffuseTexture: text(name + '-text', msg)
+        };
+    }
     // UNDONE: need real click registration
     //
     function clicked(model) {
@@ -202,7 +189,7 @@ var App;
                 model.values.splice(model.values.length - 1, 1);
                 break;
             case "hud1-hud3":
-                model = { values: [Math.random() * 5, Math.random() * 5, Math.random() * 5, Math.random() * 5, Math.random() * 5, Math.random() * 5] };
+                model = { values: model.values.map(function (x) { return Math.random() * 5; }) };
                 break;
         }
         model.hover = h;
@@ -213,7 +200,9 @@ var App;
         var cameraX = (Math.sin(time / 40) * 10);
         var cameraY = 5;
         var cameraZ = (Math.sin((time + 20) / 40) * 10);
-        var sphereScale = Math.abs(Math.sin(time / 20)) * 2;
+        var sphereScale = .5 + Math.abs(Math.sin(time / 20)) * 2;
+        var columns = 3;
+        var rows = (model.values.length / columns) | 0;
         return [
             {
                 name: 'camera1',
@@ -223,13 +212,7 @@ var App;
                 target: { x: 0, y: 5, z: 0 },
                 attachControl: "renderCanvas"
             },
-            {
-                name: 'text1',
-                type: 'material',
-                specularColor: { r: 0, g: 0, b: 0 },
-                alpha: HOLO_ALPHA,
-                diffuseTexture: text('text1-text', 'E')
-            },
+            textMaterial('text1', 'E'),
             basicLights({ x: cameraX, y: cameraY, z: cameraZ }),
             holo_diffuse('holo_stone', 'seamless_stone_texture.jpg'),
             {
@@ -249,29 +232,30 @@ var App;
             table('table1', { x: 0, y: 0, z: 0 }, 'ground1'),
             model.values.map(function (value, index) { return {
                 name: 'vis(' + index + ')',
-                type: 'box',
+                type: 'cylinder',
                 position: {
-                    x: index - model.values.length / 2,
-                    y: (value / 4),
-                    z: 0
+                    x: (((index / columns) | 0) - rows / 2) / 2,
+                    y: .25 + (value / 4),
+                    z: ((index % columns) - columns / 2) / 2
                 },
                 relativeTo: "table1-v-top",
-                size: 1,
-                scaling: { x: .8, y: value / 2, z: .8 },
+                height: value / 2,
+                diameterTop: .2,
+                diameterBottom: .4,
                 material: model.hover === 'vis(' + index + ')' ? "selected" : "holo_stone"
             }; }),
             {
                 name: "vis(-1)",
-                type: 'sphere',
+                type: 'torus',
                 position: { x: 0, y: 2, z: 0 },
                 relativeTo: "vis(0)",
                 diameter: 1,
+                thickness: .5,
                 scaling: { x: sphereScale, y: sphereScale, z: sphereScale },
-                segments: 12,
+                tessellation: 24,
                 material: "text1"
             },
             hud('hud1', model.hover),
-            shadowFor('shadow1', 'light2', select("table1-v")),
             shadowFor('shadow2', 'light1', select("table1-v"))
         ];
     }
@@ -357,6 +341,52 @@ var Rnb;
                 create: function (rawItem, dom, scene, realObjects) {
                     var item = rawItem;
                     var r = realObjects[item.name] = BABYLON.Mesh.CreateBox(item.name, item.size, scene);
+                    updateGeometryProps(item, true, realObjects, r);
+                },
+                update: function (rawItem, dom, scene, realObjects) {
+                    updateGeometryProps(rawItem, true, realObjects, realObjects[rawItem.name]);
+                }
+            },
+            cylinder: {
+                create: function (rawItem, dom, scene, realObjects) {
+                    var item = rawItem;
+                    var r = realObjects[item.name] = BABYLON.Mesh.CreateCylinder(item.name, item.height, item.diameterTop, item.diameterBottom, item.tessellation || 20, item.subdivisions, scene);
+                    updateGeometryProps(item, true, realObjects, r);
+                },
+                update: function (rawItem, dom, scene, realObjects) {
+                    updateGeometryProps(rawItem, true, realObjects, realObjects[rawItem.name]);
+                },
+                diff: function (newItem, oldItem) {
+                    if (!oldItem) {
+                        newItem.action = "create";
+                        return newItem;
+                    }
+                    else if (!newItem) {
+                        oldItem.action = "delete";
+                        return oldItem;
+                    }
+                    else {
+                        var n = newItem;
+                        var o = oldItem;
+                        // anything used in mesh creation forces a regen of the mesh, this is why updating "scaling" is much
+                        // better than adjusting "height"
+                        //
+                        if (n.height !== o.height || n.diameterTop !== o.diameterTop || n.diameterBottom !== o.diameterBottom || n.tessellation !== o.tessellation || n.subdivisions !== o.subdivisions) {
+                            newItem.action = "recreate";
+                        }
+                        else {
+                            // preserve recreate from previous diffs
+                            newItem.action = o.action || "update";
+                        }
+                        // UNDONE: target diff
+                        return newItem;
+                    }
+                }
+            },
+            torus: {
+                create: function (rawItem, dom, scene, realObjects) {
+                    var item = rawItem;
+                    var r = realObjects[item.name] = BABYLON.Mesh.CreateTorus(item.name, item.diameter, item.thickness, item.tessellation || 20, scene);
                     updateGeometryProps(item, true, realObjects, r);
                 },
                 update: function (rawItem, dom, scene, realObjects) {
@@ -680,7 +710,7 @@ var Rnb;
                 // hack, hack, hack... 
                 //
                 if (updateCount > MAX_UPDATES) {
-                    if (item.action == "update" || item.action == "delete") {
+                    if (item.action == "update" || item.action == "delete" || item.action == "recreate") {
                         result.push(item);
                     }
                     continue;
@@ -688,6 +718,14 @@ var Rnb;
                 switch (item.action) {
                     case "create":
                         updateCount++;
+                        delete item.action;
+                        handlers[item.type].create(item, dom, scene, realObjects);
+                        result.push(item);
+                        break;
+                    case "recreate":
+                        updateCount++;
+                        realObjects[item.name].dispose();
+                        delete realObjects[item.name];
                         delete item.action;
                         handlers[item.type].create(item, dom, scene, realObjects);
                         result.push(item);
@@ -719,7 +757,7 @@ var Rnb;
             var scene = new BABYLON.Scene(engine);
             var lastDom = null;
             var realObjects = {};
-            var model = { values: [1, 2, 3, 4], hover: "" };
+            var model = { values: [10, 2, 3, 4, 5, 6, 3, 2, 1, 5], hover: "" };
             canvas.addEventListener("mousemove", function (evt) {
                 var pickResult = scene.pick(evt.offsetX, evt.offsetY, function (mesh) {
                     return mesh.name.indexOf("ground") == -1;

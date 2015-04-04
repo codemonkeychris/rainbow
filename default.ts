@@ -8,34 +8,30 @@ module App {
     /**
      * Returns a two light system, one light at cameraPos, the other a top down ambient light
      */
-    function basicLights(cameraPos : Rnb.Vector3) : Rnb.SceneGraph {
+    function basicLights(cameraPos: Rnb.Vector3): Rnb.SceneGraph {
         return [
             <Rnb.DirectionalLight>{
                 name: 'light1',
                 type: 'directionalLight',
                 position: { x: 0, y: 13, z: 0 },
                 relativeTo: "ground1",
-                direction: {x:0, y:-1, z:.1},
+                direction: { x: 0, y: -1, z: .1 },
                 intensity: .7,
-                diffuse: {r:.9, g:.9, b:1},
-                specular: {r:1, g:1, b:1}
+                diffuse: { r: .9, g: .9, b: 1 },
+                specular: { r: 1, g: 1, b: 1 }
             },
-            <Rnb.DirectionalLight>{
+            <Rnb.PointLight>{
                 name: 'light2',
-                type: 'directionalLight',
-                relativeTo: "ground1",
-                position: { x: cameraPos.x, y: cameraPos.y * 2, z: cameraPos.z * 1.2 },
-                direction: {
-                    x:-cameraPos.x, 
-                    y:-cameraPos.y, 
-                    z:-cameraPos.z
-                },
-                diffuse: {r:.5, g:.5, b:.5},
-                specular: {r:1, g:1, b:1}
+                type: 'pointLight',
+                relativeTo: "$camera",
+                position: { x: 0, y: 0, z: 0 },
+                intensity: .6,
+                diffuse: { r: .5, g: .5, b: .5 },
+                specular: { r: 1, g: 1, b: 1 }
             }
         ];
     }
-    function hudControl(name : string, hoverModel : string, material : string, hoverMaterial : string, x : number) {
+    function hudControl(name: string, hoverModel: string, material: string, hoverMaterial: string, x: number) {
         return {
             name: name,
             type: 'sphere',
@@ -46,82 +42,64 @@ module App {
             material: hoverModel == name ? hoverMaterial : material
         }
     }
-    function hud(name: string, hoverModel : string) : Rnb.SceneGraph {
+    function hud(name: string, hoverModel: string): Rnb.SceneGraph {
         var materialName = name + '-mat1';
         var hoverMaterialName = name + '-mat2';
         return [
-            <Rnb.Material>{
-                name: '+',
-                type: 'material',
-                specularColor: { r: 0, g: 0, b: 0 },
-                alpha: HOLO_ALPHA,
-                diffuseTexture: text('+-text', '+')
-            },
-            <Rnb.Material>{
-                name: '-',
-                type: 'material',
-                specularColor: { r: 0, g: 0, b: 0 },
-                alpha: HOLO_ALPHA,
-                diffuseTexture: text('--text', '-')
-            },
-            <Rnb.Material>{
-                name: 'R',
-                type: 'material',
-                specularColor: { r: 0, g: 0, b: 0 },
-                alpha: HOLO_ALPHA,
-                diffuseTexture: text('R-text', 'R')
-            },
-            { name: hoverMaterialName, type: 'material', diffuseColor : { r:1, g:0.2, b:.2}, alpha: HOLO_ALPHA },
-            hudControl(name + "-hud1", hoverModel, '+', hoverMaterialName, -.5),
-            hudControl(name + "-hud2", hoverModel, '-', hoverMaterialName, 0),
-            hudControl(name + "-hud3", hoverModel, 'R', hoverMaterialName, .5)
+            textMaterial('plus', '+'),
+            textMaterial('minus', '-'),
+            textMaterial('random', 'R'),
+            { name: hoverMaterialName, type: 'material', diffuseColor: { r: 1, g: 0.2, b: .2 }, alpha: HOLO_ALPHA },
+            hudControl(name + "-hud1", hoverModel, 'plus', hoverMaterialName, -.5),
+            hudControl(name + "-hud2", hoverModel, 'minus', hoverMaterialName, 0),
+            hudControl(name + "-hud3", hoverModel, 'random', hoverMaterialName, .5)
         ];
-    }    
-    function diffuse(name: string, url : string) : Rnb.StandardMaterial { 
+    }
+    function diffuse(name: string, url: string): Rnb.StandardMaterial {
         return { name: name, type: 'material', diffuseTexture: { type: 'texture', url: url } };
     }
-    function holo_diffuse(name: string, url : string) : Rnb.StandardMaterial { 
+    function holo_diffuse(name: string, url: string): Rnb.StandardMaterial {
         return { name: name, type: 'material', diffuseTexture: { type: 'texture', url: url }, alpha: HOLO_ALPHA };
     }
-    function shadowFor(name: string, lightName : string, renderList : Rnb.FlatSceneGraphToValue<string[]> | string[]) : Rnb.ShadowGenerator { 
-        return { name: name, type: 'shadowGenerator', light: lightName, renderList: renderList }; 
+    function shadowFor(name: string, lightName: string, renderList: Rnb.FlatSceneGraphToValue<string[]> | string[]): Rnb.ShadowGenerator {
+        return { name: name, type: 'shadowGenerator', light: lightName, renderList: renderList };
     }
-    function flatGround(name: string, width : number, depth : number, material : string) : Rnb.Ground { 
+    function flatGround(name: string, width: number, depth: number, material: string): Rnb.Ground {
         return {
-            name: name, 
-            type: 'ground', 
+            name: name,
+            type: 'ground',
             position: { x: 0, y: 0, z: 0 },
             relativeTo: "$origin",
-            width:width, 
-            depth:depth, 
-            segments:8, 
-            material:material 
+            width: width,
+            depth: depth,
+            segments: 8,
+            material: material
         };
     }
     function groundFromHeightMap(
-        name: string, 
-        width : number, 
-        depth : number, 
-        minHeight : number, 
-        maxHeight : number, 
-        heightMapUrl : string, 
-        material : string) : Rnb.GroundFromHeightMap {
+        name: string,
+        width: number,
+        depth: number,
+        minHeight: number,
+        maxHeight: number,
+        heightMapUrl: string,
+        material: string): Rnb.GroundFromHeightMap {
 
-        return { 
-            name: name, 
-            type: 'groundFromHeightMap', 
+        return {
+            name: name,
+            type: 'groundFromHeightMap',
             position: { x: 0, y: 0, z: 0 },
             relativeTo: "$origin",
-            width:width, 
-            depth:depth, 
+            width: width,
+            depth: depth,
             minHeight: minHeight,
             maxHeight: maxHeight,
-            segments:8, 
+            segments: 8,
             url: heightMapUrl,
-            material: material 
+            material: material
         };
     }
-    function table(name : string, position : Rnb.Vector3, relativeTo: string) : Rnb.SceneGraph {
+    function table(name: string, position: Rnb.Vector3, relativeTo: string): Rnb.SceneGraph {
         var width = 16;
         var depth = 8;
         var legHeight = 4;
@@ -129,7 +107,7 @@ module App {
         var topThickness = .2;
         var materialName = name + '-wood';
 
-        function tableLeg(part : string, position : Rnb.Vector3) {
+        function tableLeg(part: string, position: Rnb.Vector3) {
             return <Rnb.Box>{
                 name: name + "-" + part,
                 type: 'box',
@@ -151,26 +129,26 @@ module App {
                 scaling: { x: width, y: topThickness, z: depth },
                 material: materialName
             },
-            tableLeg('v-leftfront', { 
-                    x: position.x - (width / 2) + (legTopSize / 2), 
-                    y: position.y + (legHeight / 2) - (topThickness / 2), 
-                    z: position.z - (depth / 2) + (legTopSize / 2) 
-                }),
-            tableLeg('v-rightfront', { 
-                    x: position.x + (width / 2) - (legTopSize / 2), 
-                    y: position.y + (legHeight / 2) - (topThickness / 2), 
-                    z: position.z - (depth / 2) + (legTopSize / 2) 
-                }),
-            tableLeg('v-leftback', { 
-                    x: position.x - (width / 2) + (legTopSize / 2), 
-                    y: position.y + (legHeight / 2) - (topThickness / 2), 
-                    z: position.z + (depth / 2) - (legTopSize / 2)
-                }),
-            tableLeg('v-rightback', { 
-                    x: position.x + (width / 2) - (legTopSize / 2), 
-                    y: position.y + (legHeight / 2) - (topThickness / 2), 
-                    z: position.z + (depth / 2) - (legTopSize / 2)
-                }),
+            tableLeg('v-leftfront', {
+                x: position.x - (width / 2) + (legTopSize / 2),
+                y: position.y + (legHeight / 2) - (topThickness / 2),
+                z: position.z - (depth / 2) + (legTopSize / 2)
+            }),
+            tableLeg('v-rightfront', {
+                x: position.x + (width / 2) - (legTopSize / 2),
+                y: position.y + (legHeight / 2) - (topThickness / 2),
+                z: position.z - (depth / 2) + (legTopSize / 2)
+            }),
+            tableLeg('v-leftback', {
+                x: position.x - (width / 2) + (legTopSize / 2),
+                y: position.y + (legHeight / 2) - (topThickness / 2),
+                z: position.z + (depth / 2) - (legTopSize / 2)
+            }),
+            tableLeg('v-rightback', {
+                x: position.x + (width / 2) - (legTopSize / 2),
+                y: position.y + (legHeight / 2) - (topThickness / 2),
+                z: position.z + (depth / 2) - (legTopSize / 2)
+            }),
         ];
     }
     /**
@@ -181,21 +159,30 @@ module App {
      *
      * @return {function(o : Rnb.FlatSceneGraph) => string[]} Function that will search the graph for the specified items
      */
-     function select(pattern : string) : Rnb.FlatSceneGraphToValue<string[]> {
-         return function(x) { return x.filter(item => item.name.indexOf(pattern) != -1).map(item=> item.name); };
+    function select(pattern: string): Rnb.FlatSceneGraphToValue<string[]> {
+        return function(x) { return x.filter(item => item.name.indexOf(pattern) != -1).map(item=> item.name); };
     }
 
-    function text(name: string, msg : string) {
+    function text(name: string, msg: string) {
         return <Rnb.DynamicTexture>{
             type: 'dynamicTexture',
             name: name,
             width: 128,
             height: 128,
-            wAng: Math.PI/2,
+            wAng: Math.PI / 2,
             vScale: -1,
             vOffset: -.25,
             uOffset: -.1,
-            renderCallback: 'function callback(texture) { texture.drawText("'+msg+'", null, 80, "bold 70px Segoe UI", "white", "#555555"); }; callback;'
+            renderCallback: 'function callback(texture) { texture.drawText("' + msg + '", null, 80, "bold 70px Segoe UI", "white", "#555555"); }; callback;'
+        };
+    }
+    function textMaterial(name: string, msg: string) {
+        return <Rnb.Material>{
+            name: name,
+            type: 'material',
+            specularColor: { r: 0, g: 0, b: 0 },
+            alpha: HOLO_ALPHA,
+            diffuseTexture: text(name + '-text', msg)
         };
     }
 
@@ -211,17 +198,20 @@ module App {
                 model.values.splice(model.values.length - 1, 1);
                 break;
             case "hud1-hud3":
-                model = { values: [Math.random() * 5, Math.random() * 5, Math.random() * 5, Math.random() * 5, Math.random() * 5, Math.random() * 5] };
+                model = { values: model.values.map(x=> Math.random() * 5) };
                 break;
         }
         model.hover = h;
         return model;
     }
-    export function render(time, model) : Rnb.SceneGraph {
-        var cameraX = (Math.sin(time/40) * 10);
+    export function render(time, model): Rnb.SceneGraph {
+        var cameraX = (Math.sin(time / 40) * 10);
         var cameraY = 5;
-        var cameraZ = (Math.sin((time+20)/40) * 10);
-        var sphereScale = Math.abs(Math.sin(time / 20)) * 2;
+        var cameraZ = (Math.sin((time + 20) / 40) * 10);
+        var sphereScale = .5 + Math.abs(Math.sin(time / 20)) * 2;
+
+        var columns = 3;
+        var rows = (model.values.length / columns) | 0;
 
         return <Rnb.SceneGraph>[
             <Rnb.FreeCamera>{
@@ -229,17 +219,11 @@ module App {
                 type: 'freeCamera',
                 position: { x: 0, y: 10, z: -17 },
                 relativeTo: "$origin",
-                target: {x:0, y:5, z:0},
+                target: { x: 0, y: 5, z: 0 },
                 attachControl: "renderCanvas"
             },
-            <Rnb.Material>{
-                name: 'text1',
-                type: 'material',
-                specularColor: { r: 0, g: 0, b: 0 },
-                alpha: HOLO_ALPHA,
-                diffuseTexture: text('text1-text', 'E')
-            },
-            basicLights({x: cameraX, y: cameraY, z: cameraZ}),
+            textMaterial('text1', 'E'),
+            basicLights({ x: cameraX, y: cameraY, z: cameraZ }),
             holo_diffuse('holo_stone', 'seamless_stone_texture.jpg'),
             <Rnb.Material>{
                 name: 'selected',
@@ -255,35 +239,36 @@ module App {
                 diffuseTexture: <Rnb.Texture>{ type: 'texture', url: 'ground.jpg', uScale: 4, vScale: 4 }
             },
             groundFromHeightMap('ground1', 50, 50, 0, 3, "heightMap.png", "dirt"),
-            table('table1', {x:0,y:0,z:0}, 'ground1'),
-            model.values.map((value, index) => <Rnb.Box>{
+            table('table1', { x: 0, y: 0, z: 0 }, 'ground1'),
+            model.values.map((value, index) => <Rnb.Cylinder>{
                 name: 'vis(' + index + ')',
-                type: 'box',
+                type: 'cylinder',
                 position: {
-                    x: index - model.values.length / 2,
-                    y: (value / 4),
-                    z: 0
+                    x: (((index / columns) | 0) - rows / 2) / 2,
+                    y: .25 + (value/4),
+                    z: ((index % columns) - columns / 2) / 2
                 },
                 relativeTo: "table1-v-top",
-                size: 1,
-                scaling: { x: .8, y: value / 2, z: .8 },
+                height: value/2,
+                diameterTop: .2,
+                diameterBottom: .4,
                 material: model.hover === 'vis(' + index + ')' ? "selected" : "holo_stone"
             }),
 
-            <Rnb.Sphere>{
+            <Rnb.Torus>{
                 name: "vis(-1)",
-                type: 'sphere',
+                type: 'torus',
                 position: { x: 0, y: 2, z: 0 },
                 relativeTo: "vis(0)",
                 diameter: 1,
-                scaling: {x:sphereScale, y:sphereScale, z:sphereScale},
-                segments: 12,
+                thickness: .5,
+                scaling: { x: sphereScale, y: sphereScale, z: sphereScale },
+                tessellation: 24,
                 material: "text1"
             },
 
             hud('hud1', model.hover),
 
-            shadowFor('shadow1', 'light2', select("table1-v")),
             shadowFor('shadow2', 'light1', select("table1-v"))
         ];
     };
@@ -423,6 +408,18 @@ module Rnb {
     }
     export interface Box extends Geometry {
         size: number;
+    }
+    export interface Cylinder extends Geometry {
+        height: number;
+        diameterTop: number;
+        diameterBottom: number;
+        tessellation?: number;
+        subdivisions?: number;
+    }
+    export interface Torus extends Geometry {
+        diameter: number;
+        thickness: number;
+        tessellation?: number;
     }
     export interface Sphere extends Geometry {
         segments: number;
@@ -601,6 +598,62 @@ module Rnb.Runtime {
             update: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 updateGeometryProps(<Rnb.Box>rawItem, true, realObjects, realObjects[rawItem.name]);
             }
+            // UNDONE: diff for mesh recreate
+        },
+        cylinder: {
+            create: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
+                var item = <Rnb.Cylinder>rawItem;
+
+                var r = realObjects[item.name] = BABYLON.Mesh.CreateCylinder(item.name, item.height, item.diameterTop, item.diameterBottom, item.tessellation || 20, item.subdivisions, scene);
+                updateGeometryProps(item, true, realObjects, r);
+            },
+            update: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
+                updateGeometryProps(<Rnb.Cylinder>rawItem, true, realObjects, realObjects[rawItem.name]);
+            },
+            diff: function(newItem: Rnb.GraphElement, oldItem: Rnb.GraphElement): Rnb.GraphElement {
+
+                if (!oldItem) {
+                    newItem.action = "create";
+                    return newItem;
+                }
+                else if (!newItem) {
+                    oldItem.action = "delete";
+                    return oldItem;
+                }
+                else {
+                    var n = <Rnb.Cylinder>newItem;
+                    var o = <Rnb.Cylinder>oldItem;
+
+                    // anything used in mesh creation forces a regen of the mesh, this is why updating "scaling" is much
+                    // better than adjusting "height"
+                    //
+                    if (n.height !== o.height 
+                        || n.diameterTop !== o.diameterTop 
+                        || n.diameterBottom !== o.diameterBottom
+                        || n.tessellation !== o.tessellation
+                        || n.subdivisions !== o.subdivisions) {
+                        newItem.action = "recreate";
+                    }
+                    else {
+                        // preserve recreate from previous diffs
+                        newItem.action = o.action || "update";
+                    }
+                    // UNDONE: target diff
+                    return newItem;
+                }
+            }
+        },
+        torus: {
+            create: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
+                var item = <Rnb.Torus>rawItem;
+
+                var r = realObjects[item.name] = BABYLON.Mesh.CreateTorus(item.name, item.diameter, item.thickness, item.tessellation || 20, scene);
+                updateGeometryProps(item, true, realObjects, r);
+            },
+            update: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
+                updateGeometryProps(<Rnb.Torus>rawItem, true, realObjects, realObjects[rawItem.name]);
+            }
+            // UNDONE: diff for mesh recreate
         },
         sphere: {
             create: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
@@ -613,6 +666,7 @@ module Rnb.Runtime {
                 var item = <Rnb.Sphere>rawItem;
                 updateGeometryProps(item, true, realObjects, realObjects[item.name]);
             }
+            // UNDONE: diff for mesh recreate
         },
         ground: {
             create: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
@@ -624,6 +678,7 @@ module Rnb.Runtime {
             update: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 updateGeometryProps(<Rnb.Ground>rawItem, false, realObjects, realObjects[rawItem.name]);
             }
+            // UNDONE: diff for mesh recreate
         },
         groundFromHeightMap: {
             create: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
@@ -644,6 +699,7 @@ module Rnb.Runtime {
             update: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 updateGeometryProps(<Rnb.GroundFromHeightMap>rawItem, false, realObjects, realObjects[rawItem.name]);
             }
+            // UNDONE: diff for mesh recreate
         },
         hemisphericLight: {
             create: function(rawItem: Rnb.GraphElement, dom : Rnb.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
@@ -958,7 +1014,7 @@ module Rnb.Runtime {
             // hack, hack, hack... 
             //
             if (updateCount > MAX_UPDATES) {
-                if (item.action == "update" || item.action == "delete") {
+                if (item.action == "update" || item.action == "delete" || item.action=="recreate") {
                     result.push(item);
                 }
                 continue;
@@ -968,6 +1024,15 @@ module Rnb.Runtime {
                 case "create":
                     updateCount++;
 
+                    delete item.action;
+                    handlers[item.type].create(item, dom, scene, realObjects);
+                    result.push(item);
+                    break;
+                case "recreate":
+                    updateCount++;
+
+                    realObjects[item.name].dispose();
+                    delete realObjects[item.name];
                     delete item.action;
                     handlers[item.type].create(item, dom, scene, realObjects);
                     result.push(item);
@@ -1002,7 +1067,7 @@ module Rnb.Runtime {
         var scene = new BABYLON.Scene(engine);
         var lastDom : Rnb.FlatSceneGraph = null;
         var realObjects : RealObjectsCache = {};
-        var model = {values:[1,2,3,4], hover:""};
+        var model = {values:[10,2,3,4,5,6,3,2,1,5], hover:""};
         
         canvas.addEventListener("mousemove", (evt) => {
             var pickResult = scene.pick(evt.offsetX, evt.offsetY, (mesh) => {

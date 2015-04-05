@@ -3,7 +3,7 @@
 ///<reference path='Babylon.js-2.0/babylon.2.0.d.ts' />
 
 module App {
-    var HOLO_ALPHA = .8;
+    var HOLO_ALPHA = .6;
 
     /**
      * Returns a two light system, one light at cameraPos, the other a top down ambient light
@@ -13,9 +13,9 @@ module App {
             <Rnb.DirectionalLight>{
                 name: 'light1',
                 type: 'directionalLight',
-                position: { x: 0, y: 13, z: 0 },
+                position: { x: 0, y: 13, z: 3 },
                 relativeTo: "ground1",
-                direction: { x: 0, y: -1, z: .1 },
+                direction: { x: 0, y: -13, z: .1 },
                 intensity: .7,
                 diffuse: { r: .9, g: .9, b: 1 },
                 specular: { r: 1, g: 1, b: 1 }
@@ -26,8 +26,8 @@ module App {
                 relativeTo: "$camera",
                 position: { x: 0, y: 0, z: 0 },
                 intensity: .6,
-                diffuse: { r: .5, g: .5, b: .5 },
-                specular: { r: 1, g: 1, b: 1 }
+                diffuse: { r: 1, g: 1, b: 1 },
+                specular: { r: .3, g: .3, b: .3 }
             }
         ];
     }
@@ -196,12 +196,12 @@ module App {
                 type: 'dynamicTexture',
                 name: name + "-texture",
                 width: 512,
-                height: 128,
+                height: 60,
                 vScale: 1,
                 renderCallback: 
                 'function callback(texture) { \n' + 
-                '    texture.drawText("' + msg1 + '", 0, 40, "20px Segoe UI", "white", "#555555"); \n' +
-                '    texture.drawText("' + msg2 + '", 0, 80, "16px Segoe UI", "white", null); \n' +
+                '    texture.drawText("' + msg1 + '", 5, 20, "bold 20px Segoe UI", "white", "#555555"); \n' +
+                '    texture.drawText("' + msg2 + '", 5, 40, "bold 16px Segoe UI", "white", null); \n' +
                 '}; callback;'
             }
         };
@@ -237,7 +237,7 @@ module App {
         }
         return {
             values: values.map(x=> Math.round(Math.random() * 11)),
-            scrollSpeed: -.2,
+            scrollSpeed: -.1,
             offsetX: 0,
             columnStart: 5,
             columnCount: 7,
@@ -291,6 +291,8 @@ module App {
 
         var displayIndex = index => (index + startIndex) % model.values.length;
         var topStatusName = 'topStatus(' + model.scrollSpeed + ')';
+        var calcX = index => 2.5 + offsetX + (((index / itemsPerColumn) | 0) - model.columnCount / 2) * 2.5;
+
         return <Rnb.SceneGraph>[
             <Rnb.FreeCamera>{
                 name: 'camera1',
@@ -324,25 +326,28 @@ module App {
             <Rnb.Plane>{
                 name: 'status',
                 type: 'plane',
-                position: {x:-.25,y:1, z:3},
-                scaling: {x:1.25, y:.25, z:1},
+                position: {x:-1.2,y:-1, z:3},
+                scaling: {x:1.25/3, y:.20/3, z:1},
+                rotation: {x:0,y:-.2,z:0},
                 relativeTo: '$camera',
                 size: 2,
                 material: topStatusName
             },
-            valuesToRender.map((value, index) => holo_diffuse('material(' + displayIndex(index) + '-' + value + ')', 'images/' + value + '.jpg')),
-            // valuesToRender.map((value, index) => tileMaterial('material(' + displayIndex(index) + '-' + value + ')', displayIndex(index) + ":"+value)),
+            // since this is a web demo, we cache all 12 images in textures to avoid re-downloading
+            //
+            [0,1,2,3,4,5,6,7,8,9,10,11].map((value) => holo_diffuse('image(' + value + ')', 'images/' + value + '.jpg')),
             valuesToRender.map((value, index) => <Rnb.Plane>{
                 name: 'vis(' + displayIndex(index) + ')',
                 type: 'plane',
                 position: {
-                    x: 2.5 + offsetX + (((index / itemsPerColumn) | 0)-model.columnCount/2) * 2.5,
-                    y: 1.5+((index % itemsPerColumn)) * 2.5,
-                    z: 0
+                    x: calcX(index),
+                    y: 1.5 + ((index % itemsPerColumn)) * 2.5,
+                    z: -Math.abs(calcX(index)/6)
                 },
+                rotation: { x: .3, y: calcX(index)/16, z: 0 },
                 relativeTo: "table1-v-top",
                 size: 2,
-                material: 'material(' + displayIndex(index) + '-' + value + ')'
+                material: 'image(' + value + ')'
             }),
 
             hud('hud1', model.hover),
@@ -478,6 +483,7 @@ module Rnb {
     export interface Geometry extends HasPosition, GraphElement {
         material?: string;
         scaling?: Vector3;
+        rotation?: Vector3;
     }
     export interface Ground extends Geometry {
         width: number;
@@ -647,6 +653,11 @@ module Rnb.Runtime {
             r.scaling.x = item.scaling.x;
             r.scaling.y = item.scaling.y;
             r.scaling.z = item.scaling.z;
+        }
+        if (item.rotation) {
+            r.rotation.x = item.rotation.x;
+            r.rotation.y = item.rotation.y;
+            r.rotation.z = item.rotation.z;
         }
         updatePosition(item, r, realObjects);
         if (includeExpensive) {
@@ -1159,8 +1170,10 @@ module Rnb.Runtime {
         var lastDom : Rnb.FlatSceneGraph = null;
         var realObjects : RealObjectsCache = {};
         var model = App.initialize();
-        
-        canvas.addEventListener("mousemove", (evt) => {
+
+        // UNDONE: need to do mouse/etc for x-browser
+        //
+        canvas.addEventListener("pointermove", (evt) => {
             var pickResult = scene.pick(evt.offsetX, evt.offsetY, (mesh) => {
                 return mesh.name.indexOf("ground") == -1;
             });
@@ -1173,16 +1186,17 @@ module Rnb.Runtime {
                 if (model.hover) {
                     model.hover = "";
                 }
-            }
+            }            
         });
-        canvas.addEventListener("mouseup", (evt) => {
+        
+        canvas.addEventListener("pointerup", (evt) => {
             if (model.hover) {
                 model = App.clicked(model);
             }
         });
 
-        var frameCount = 0;
 
+        var frameCount = 0;
 
         var updateFrame = function() {
             model = App.updateModel(frameCount, model);

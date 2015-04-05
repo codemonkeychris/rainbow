@@ -3,7 +3,7 @@
 ///<reference path='Babylon.js-2.0/babylon.2.0.d.ts' />
 var App;
 (function (App) {
-    var HOLO_ALPHA = .8;
+    var HOLO_ALPHA = .6;
     /**
      * Returns a two light system, one light at cameraPos, the other a top down ambient light
      */
@@ -12,9 +12,9 @@ var App;
             {
                 name: 'light1',
                 type: 'directionalLight',
-                position: { x: 0, y: 13, z: 0 },
+                position: { x: 0, y: 13, z: 3 },
                 relativeTo: "ground1",
-                direction: { x: 0, y: -1, z: .1 },
+                direction: { x: 0, y: -13, z: .1 },
                 intensity: .7,
                 diffuse: { r: .9, g: .9, b: 1 },
                 specular: { r: 1, g: 1, b: 1 }
@@ -25,8 +25,8 @@ var App;
                 relativeTo: "$camera",
                 position: { x: 0, y: 0, z: 0 },
                 intensity: .6,
-                diffuse: { r: .5, g: .5, b: .5 },
-                specular: { r: 1, g: 1, b: 1 }
+                diffuse: { r: 1, g: 1, b: 1 },
+                specular: { r: .3, g: .3, b: .3 }
             }
         ];
     }
@@ -187,9 +187,9 @@ var App;
                 type: 'dynamicTexture',
                 name: name + "-texture",
                 width: 512,
-                height: 128,
+                height: 60,
                 vScale: 1,
-                renderCallback: 'function callback(texture) { \n' + '    texture.drawText("' + msg1 + '", 0, 40, "20px Segoe UI", "white", "#555555"); \n' + '    texture.drawText("' + msg2 + '", 0, 80, "16px Segoe UI", "white", null); \n' + '}; callback;'
+                renderCallback: 'function callback(texture) { \n' + '    texture.drawText("' + msg1 + '", 5, 20, "bold 20px Segoe UI", "white", "#555555"); \n' + '    texture.drawText("' + msg2 + '", 5, 40, "bold 16px Segoe UI", "white", null); \n' + '}; callback;'
             }
         };
     }
@@ -219,7 +219,7 @@ var App;
         }
         return {
             values: values.map(function (x) { return Math.round(Math.random() * 11); }),
-            scrollSpeed: -.2,
+            scrollSpeed: -.1,
             offsetX: 0,
             columnStart: 5,
             columnCount: 7,
@@ -271,6 +271,7 @@ var App;
         }
         var displayIndex = function (index) { return (index + startIndex) % model.values.length; };
         var topStatusName = 'topStatus(' + model.scrollSpeed + ')';
+        var calcX = function (index) { return 2.5 + offsetX + (((index / itemsPerColumn) | 0) - model.columnCount / 2) * 2.5; };
         return [
             {
                 name: 'camera1',
@@ -302,24 +303,26 @@ var App;
             {
                 name: 'status',
                 type: 'plane',
-                position: { x: -.25, y: 1, z: 3 },
-                scaling: { x: 1.25, y: .25, z: 1 },
+                position: { x: -1.2, y: -1, z: 3 },
+                scaling: { x: 1.25 / 3, y: .20 / 3, z: 1 },
+                rotation: { x: 0, y: -.2, z: 0 },
                 relativeTo: '$camera',
                 size: 2,
                 material: topStatusName
             },
-            valuesToRender.map(function (value, index) { return holo_diffuse('material(' + displayIndex(index) + '-' + value + ')', 'images/' + value + '.jpg'); }),
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(function (value) { return holo_diffuse('image(' + value + ')', 'images/' + value + '.jpg'); }),
             valuesToRender.map(function (value, index) { return {
                 name: 'vis(' + displayIndex(index) + ')',
                 type: 'plane',
                 position: {
-                    x: 2.5 + offsetX + (((index / itemsPerColumn) | 0) - model.columnCount / 2) * 2.5,
+                    x: calcX(index),
                     y: 1.5 + ((index % itemsPerColumn)) * 2.5,
-                    z: 0
+                    z: -Math.abs(calcX(index) / 6)
                 },
+                rotation: { x: .3, y: calcX(index) / 16, z: 0 },
                 relativeTo: "table1-v-top",
                 size: 2,
-                material: 'material(' + displayIndex(index) + '-' + value + ')'
+                material: 'image(' + value + ')'
             }; }),
             hud('hud1', model.hover),
             shadowFor('shadow2', 'light1', select("table1-v"))
@@ -383,6 +386,11 @@ var Rnb;
                 r.scaling.x = item.scaling.x;
                 r.scaling.y = item.scaling.y;
                 r.scaling.z = item.scaling.z;
+            }
+            if (item.rotation) {
+                r.rotation.x = item.rotation.x;
+                r.rotation.y = item.rotation.y;
+                r.rotation.z = item.rotation.z;
             }
             updatePosition(item, r, realObjects);
             if (includeExpensive) {
@@ -833,7 +841,9 @@ var Rnb;
             var lastDom = null;
             var realObjects = {};
             var model = App.initialize();
-            canvas.addEventListener("mousemove", function (evt) {
+            // UNDONE: need to do mouse/etc for x-browser
+            //
+            canvas.addEventListener("pointermove", function (evt) {
                 var pickResult = scene.pick(evt.offsetX, evt.offsetY, function (mesh) {
                     return mesh.name.indexOf("ground") == -1;
                 });
@@ -848,7 +858,7 @@ var Rnb;
                     }
                 }
             });
-            canvas.addEventListener("mouseup", function (evt) {
+            canvas.addEventListener("pointerup", function (evt) {
                 if (model.hover) {
                     model = App.clicked(model);
                 }

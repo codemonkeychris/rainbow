@@ -178,46 +178,79 @@ module App {
         ];
     }
 
-    function statusMessage(model) : Rnb.SceneGraph {
-        function statusTextMaterial(name: string, msg1: string, msg2: string) {
-            return <Rnb.Material>{
-                name: name,
-                type: 'material',
-                specularColor: { r: 0, g: 0, b: 0 },
-                alpha: HOLO_ALPHA,
-                diffuseTexture: <Rnb.DynamicTexture>{
-                    type: 'dynamicTexture',
-                    name: name + "-texture",
-                    width: 512,
-                    height: 60,
-                    vScale: 1,
-                    renderCallback:
-                    'function callback(texture) { \n' +
-                    '    texture.drawText("' + msg1 + '", 5, 20, "bold 20px Segoe UI", "white", "#555555"); \n' +
-                    '    texture.drawText("' + msg2 + '", 5, 40, "bold 16px Segoe UI", "white", null); \n' +
-                    '}; callback;'
-                }
-            };
+    interface ListViewViewModel {
+        offsetX: number;
+        columnStart: number;
+        columnCount: number;
+        scrollSpeed: number;
+    }
+    function listView<T>(name : string, 
+        viewModel : ListViewViewModel, 
+        dataModel : T[], 
+        relativeTo: string, 
+        position: Rnb.Vector3, 
+        tileSize: number,
+        renderer: (T)=>string) : Rnb.SceneGraph {
+
+        var itemsPerColumn = 3;
+        var totalColumns = (dataModel.length / itemsPerColumn) | 0;
+
+        var offsetX = viewModel.offsetX;
+
+        var startIndex = viewModel.columnStart * itemsPerColumn % dataModel.length;
+        var endIndex1 = Math.min(startIndex + viewModel.columnCount * itemsPerColumn, dataModel.length);
+        var valuesToRender = dataModel.slice(startIndex, endIndex1);
+
+        if (endIndex1 - startIndex < viewModel.columnCount * itemsPerColumn) {
+            valuesToRender = valuesToRender.concat(dataModel.slice(0, viewModel.columnCount * itemsPerColumn - valuesToRender.length));
         }
 
-        var topStatusName = 'topStatus(' + model.scrollSpeed + ')';
-        return [
-            statusTextMaterial(topStatusName,
-                "Virtualized scrolling through 100 items (current:" + model.scrollSpeed + ")",
-                "+ increase scroll left, - increase scroll right, R randomizes values"),
-            <Rnb.Plane>{
-                name: 'status',
-                type: 'plane',
-                position: { x: -1.2, y: -1, z: 3 },
-                scaling: { x: 1.25 / 3, y: .20 / 3, z: 1 },
-                rotation: { x: 0, y: -.2, z: 0 },
-                relativeTo: '$camera',
-                size: 2,
-                material: topStatusName
+        var sizeWithPadding = tileSize * 1.25;
+        var displayIndex = index => (index + startIndex) % dataModel.length;
+        var calcX = index => sizeWithPadding + offsetX + (((index / itemsPerColumn) | 0) - viewModel.columnCount / 2) * sizeWithPadding;
+
+        hackViewModelUpdateHandler = function (time, model) {
+            model[name].offsetX += model[name].scrollSpeed;
+            if (model[name].offsetX < -sizeWithPadding) {
+                model[name].offsetX = 0;
+                model[name].columnStart++;
             }
+            else if (model[name].offsetX > 0) {
+                model[name].offsetX = -sizeWithPadding;
+                model[name].columnStart--;
+            }
+            return model;
+        }
+
+        return [
+            valuesToRender.map((value, index) => <Rnb.Plane>{
+                name: name + '-vis(' + displayIndex(index) + ')',
+                type: 'plane',
+                position: {
+                    x: position.x + calcX(index),
+                    y: position.y + (sizeWithPadding/2) + ((index % itemsPerColumn)) * sizeWithPadding,
+                    z: position.z + -Math.abs(calcX(index) / 6)
+                },
+                rotation: { x: .3, y: calcX(index) / 16, z: 0 },
+                relativeTo: relativeTo,
+                size: tileSize,
+                material: renderer(value)
+            })
         ];
     }
 
+    // UNDONE: need a way for components to update their viewModel
+    //
+    var hackViewModelUpdateHandler;
+
+    export function updateModel(time, model) {
+        if (hackViewModelUpdateHandler) {
+            model = hackViewModelUpdateHandler(time, model);
+        }
+        return model;
+    }
+
+    
     export function initialize() {
         var values = [];
         for (var i = 0; i < 100; i++) {
@@ -225,10 +258,12 @@ module App {
         }
         return {
             values: values.map(x=> Math.round(Math.random() * 11)),
-            scrollSpeed: -.1,
-            offsetX: 0,
-            columnStart: 5,
-            columnCount: 7,
+            listView1: <ListViewViewModel>{
+                scrollSpeed: -.1,
+                offsetX: 0,
+                columnStart: 5,
+                columnCount: 7,
+            },
             hover: ""
         };
     }
@@ -236,12 +271,13 @@ module App {
     //
     export function clicked(model) {
         var h = model.hover;
+        var listView1 = <ListViewViewModel>model.listView1;
         switch (model.hover) {
             case "hud1-hud1":
-                model.scrollSpeed = (((model.scrollSpeed * 100) - 5) | 0) / 100;
+                listView1.scrollSpeed = (((listView1.scrollSpeed * 100) - 5) | 0) / 100;
                 break;
             case "hud1-hud2":
-                model.scrollSpeed = (((model.scrollSpeed * 100) + 5) | 0) / 100;
+                listView1.scrollSpeed = (((listView1.scrollSpeed * 100) + 5) | 0) / 100;
                 break;
             case "hud1-hud3":
                 model.values = model.values.map(x=> Math.round(Math.random() * 11));
@@ -250,60 +286,64 @@ module App {
         model.hover = h;
         return model;
     }
-    export function updateModel(time, model) {
-        model.offsetX += model.scrollSpeed;
-        if (model.offsetX < -2.5) {
-            model.offsetX = 0;
-            model.columnStart++;
-        }
-        else if (model.offsetX > 0) {
-            model.offsetX = -2.5;
-            model.columnStart--;
-        }
-        return model;
-    }
+
     export function render(time, model): Rnb.SceneGraph {
+        function statusMessage(scrollSpeed : number) : Rnb.SceneGraph {
+            function statusTextMaterial(name: string, msg1: string, msg2: string) {
+                return <Rnb.Material>{
+                    name: name,
+                    type: 'material',
+                    specularColor: { r: 0, g: 0, b: 0 },
+                    alpha: HOLO_ALPHA,
+                    diffuseTexture: <Rnb.DynamicTexture>{
+                        type: 'dynamicTexture',
+                        name: name + "-texture",
+                        width: 512,
+                        height: 60,
+                        vScale: 1,
+                        renderCallback:
+                        'function callback(texture) { \n' +
+                        '    texture.drawText("' + msg1 + '", 5, 20, "bold 20px Segoe UI", "white", "#555555"); \n' +
+                        '    texture.drawText("' + msg2 + '", 5, 40, "bold 16px Segoe UI", "white", null); \n' +
+                        '}; callback;'
+                    }
+                };
+            }
 
-        var itemsPerColumn = 3;
-        var totalColumns = (model.values.length / itemsPerColumn) | 0;
-
-        var offsetX = model.offsetX;
-
-        var startIndex = model.columnStart * itemsPerColumn % model.values.length;
-        var endIndex1 = Math.min(startIndex + model.columnCount * itemsPerColumn, model.values.length);
-        var valuesToRender = model.values.slice(startIndex, endIndex1);
-
-        if (endIndex1 - startIndex < model.columnCount * itemsPerColumn) {
-            valuesToRender = valuesToRender.concat(model.values.slice(0, model.columnCount * itemsPerColumn - valuesToRender.length));
+            var topStatusName = 'topStatus(' + scrollSpeed + ')';
+            return [
+                statusTextMaterial(topStatusName,
+                    "Virtualized scrolling through 100 items (current:" + scrollSpeed + ")",
+                    "+ increase scroll left, - increase scroll right, R randomizes values"),
+                <Rnb.Plane>{
+                    name: 'status',
+                    type: 'plane',
+                    position: { x: -1.2, y: -1, z: 3 },
+                    scaling: { x: 1.25 / 3, y: .20 / 3, z: 1 },
+                    rotation: { x: 0, y: -.2, z: 0 },
+                    relativeTo: '$camera',
+                    size: 2,
+                    material: topStatusName
+                }
+            ];
         }
-
-        var displayIndex = index => (index + startIndex) % model.values.length;
-        var calcX = index => 2.5 + offsetX + (((index / itemsPerColumn) | 0) - model.columnCount / 2) * 2.5;
-
-        function holo_diffuse(name: string, url: string): Rnb.StandardMaterial {
-            return { name: name, type: 'material', diffuseTexture: { type: 'texture', url: url }, alpha: HOLO_ALPHA };
+        function holo_diffuse(name: string, url: string)  {
+            return <Rnb.StandardMaterial>{ name: name, type: 'material', diffuseTexture: { type: 'texture', url: url }, alpha: HOLO_ALPHA };
         }
 
         return <Rnb.SceneGraph>[
             createWorld(),
-            statusMessage(model),
+            statusMessage(model.listView1.scrollSpeed),
             // since this is a web demo, we cache all 12 images in textures to avoid re-downloading
             //
             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((value) => holo_diffuse('image(' + value + ')', 'images/' + value + '.jpg')),
-            valuesToRender.map((value, index) => <Rnb.Plane>{
-                name: 'vis(' + displayIndex(index) + ')',
-                type: 'plane',
-                position: {
-                    x: calcX(index),
-                    y: 1.5 + ((index % itemsPerColumn)) * 2.5,
-                    z: -Math.abs(calcX(index) / 6)
-                },
-                rotation: { x: .3, y: calcX(index) / 16, z: 0 },
-                relativeTo: "table1-v-top",
-                size: 2,
-                material: 'image(' + value + ')'
-            }),
-
+            listView<number>('listView1', 
+                model.listView1, 
+                model.values, 
+                'table1-v-top', 
+                {x:0,y:0,z:0}, 
+                2,
+                value => 'image(' + value + ')'),
             hud('hud1', model.hover)
         ];
     };

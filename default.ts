@@ -186,7 +186,7 @@ module App {
         };
     }
 
-    function statusText(name: string, msg1: string) {
+    function statusText(name: string, msg1: string, msg2 : string) {
         return <Rnb.DynamicTexture>{
             type: 'dynamicTexture',
             name: name,
@@ -195,36 +195,79 @@ module App {
             vScale: 1,
             renderCallback: 
             'function callback(texture) { \n' + 
-            '    texture.drawText("' + msg1 + '", 0, 40, "bold 20px Consolas", "white", "#555555"); \n' +
+            '    texture.drawText("' + msg1 + '", 0, 40, "20px Segoe UI", "white", "#555555"); \n' +
+            '    texture.drawText("' + msg2 + '", 0, 80, "16px Segoe UI", "white", null); \n' +
             '}; callback;'
         };
     }
-    function statusTextMaterial(name: string, msg1: string) {
+    function statusTextMaterial(name: string, msg1: string, msg2 : string) {
         return <Rnb.Material>{
             name: name,
             type: 'material',
             specularColor: { r: 0, g: 0, b: 0 },
             alpha: HOLO_ALPHA,
-            diffuseTexture: statusText(name + '-text', msg1)
+            diffuseTexture: statusText(name + '-text', msg1, msg2)
         };
     }
 
+    function tileMaterialTexture(name: string, msg1: string) {
+        return <Rnb.DynamicTexture>{
+            type: 'dynamicTexture',
+            name: name,
+            width: 64,
+            height: 64,
+            vScale: 1,
+            renderCallback: 
+            'function callback(texture) { \n' + 
+            '    texture.drawText("' + msg1 + '", 0, 40, "bold 20px Consolas", "white", "#555555"); \n' +
+            '}; callback;'
+        };
+    }
+    function tileMaterial(name: string, msg1: string) {
+        return <Rnb.Material>{
+            name: name,
+            type: 'material',
+            specularColor: { r: 0, g: 0, b: 0 },
+            alpha: HOLO_ALPHA,
+            diffuseTexture: tileMaterialTexture(name + '-text', msg1)
+        };
+    }
+
+    export function initialize() {
+        var values = [];
+        for (var i = 0; i < 100; i++) {
+            values.push(i);
+        }
+        return {values:values, scrollSpeed: -.2, offsetX: 0, columnStart:5, columnCount:7, hover:""}
+    }
     // UNDONE: need real click registration
     //
     export function clicked(model) {
         var h = model.hover;
         switch (model.hover) {
             case "hud1-hud1":
-                model.values.push(2);
+                model.scrollSpeed = (((model.scrollSpeed * 100) - 5) | 0)/100;
                 break;
             case "hud1-hud2":
-                model.values.splice(model.values.length - 1, 1);
+                model.scrollSpeed = (((model.scrollSpeed * 100) + 5) | 0)/100;
                 break;
             case "hud1-hud3":
-                model = { values: model.values.map(x=> Math.round(Math.random() * 5)) };
+                model.values = model.values.map(x=> Math.round(Math.random() * 5));
                 break;
         }
         model.hover = h;
+        return model;
+    }
+    export function updateModel(time, model) {
+        model.offsetX += model.scrollSpeed;
+        if (model.offsetX < -2.5) {
+            model.offsetX = 0;
+            model.columnStart++;
+        }
+        else if (model.offsetX > 0) {
+            model.offsetX = -2.5;
+            model.columnStart--;
+        }
         return model;
     }
     export function render(time, model): Rnb.SceneGraph {
@@ -233,11 +276,21 @@ module App {
         var cameraZ = (Math.sin((time + 20) / 40) * 10);
         var sphereScale = .5 + Math.abs(Math.sin(time / 20)) * 2;
 
-        var columns = 3;
-        var rows = (model.values.length / columns) | 0;
+        var itemsPerColumn = 3;
+        var totalColumns = (model.values.length / itemsPerColumn) | 0;
 
-        var hudToken = JSON.stringify(model.values);
+        var offsetX = model.offsetX;
 
+        var startIndex = model.columnStart * itemsPerColumn % model.values.length;
+        var endIndex1 = Math.min(startIndex + model.columnCount * itemsPerColumn, model.values.length);
+        var valuesToRender = model.values.slice(startIndex, endIndex1);
+
+        if (endIndex1 - startIndex < model.columnCount * itemsPerColumn) {
+            valuesToRender = valuesToRender.concat(model.values.slice(0, model.columnCount * itemsPerColumn - valuesToRender.length));
+        }
+
+        var displayIndex = index => (index + startIndex) % model.values.length;
+        var topStatusName = 'topStatus(' + model.scrollSpeed + ')';
         return <Rnb.SceneGraph>[
             <Rnb.FreeCamera>{
                 name: 'camera1',
@@ -265,7 +318,7 @@ module App {
             },
             groundFromHeightMap('ground1', 50, 50, 0, 3, "heightMap.png", "dirt"),
             table('table1', { x: 0, y: 0, z: 0 }, 'ground1'),
-            statusTextMaterial(hudToken, JSON.stringify(model.values)),
+            statusTextMaterial(topStatusName, "Virtualized scrolling through 100 items (current:" + model.scrollSpeed + ")", "+ increase scroll left, - increase scroll right, R randomizes values"),
             <Rnb.Plane>{
                 name: 'status',
                 type: 'plane',
@@ -274,34 +327,21 @@ module App {
                 scaling: {x:1.25, y:.25, z:1},
                 relativeTo: '$camera',
                 size: 2,
-                material: hudToken
+                material: topStatusName
             },
-            model.values.map((value, index) => <Rnb.Cylinder>{
-                name: 'vis(' + index + ')',
-                type: 'cylinder',
+            valuesToRender.map((value, index) => tileMaterial('material(' + displayIndex(index) + '-' + value + ')', displayIndex(index) + ":"+value)),
+            valuesToRender.map((value, index) => <Rnb.Plane>{
+                name: 'vis(' + displayIndex(index) + ')',
+                type: 'plane',
                 position: {
-                    x: (((index / columns) | 0) - rows / 2) / 2,
-                    y: .25 + (value/4),
-                    z: ((index % columns) - columns / 2) / 2
+                    x: 2.5 + offsetX + (((index / itemsPerColumn) | 0)-model.columnCount/2) * 2.5,
+                    y: 1.5+((index % itemsPerColumn)) * 2.5,
+                    z: 0
                 },
                 relativeTo: "table1-v-top",
-                height: value/2,
-                diameterTop: .2,
-                diameterBottom: .4,
-                material: model.hover === 'vis(' + index + ')' ? "selected" : "holo_stone"
+                size: 2,
+                material: 'material(' + displayIndex(index) + '-' + value + ')'
             }),
-
-            <Rnb.Torus>{
-                name: "vis(-1)",
-                type: 'torus',
-                position: { x: 0, y: 2, z: 0 },
-                relativeTo: "vis(0)",
-                diameter: 1,
-                thickness: .5,
-                scaling: { x: sphereScale, y: sphereScale, z: sphereScale },
-                tessellation: 24,
-                material: "text1"
-            },
 
             hud('hud1', model.hover),
 
@@ -1116,7 +1156,7 @@ module Rnb.Runtime {
         var scene = new BABYLON.Scene(engine);
         var lastDom : Rnb.FlatSceneGraph = null;
         var realObjects : RealObjectsCache = {};
-        var model = {values:[10,2,3,4,5,6,3,2,1,5], hover:""};
+        var model = App.initialize();
         
         canvas.addEventListener("mousemove", (evt) => {
             var pickResult = scene.pick(evt.offsetX, evt.offsetY, (mesh) => {
@@ -1143,8 +1183,11 @@ module Rnb.Runtime {
 
 
         var updateFrame = function() {
-            lastDom = diff(lastDom, App.render(frameCount++, model));
+            model = App.updateModel(frameCount, model);
+            lastDom = diff(lastDom, App.render(frameCount, model));
             lastDom = applyActions(lastDom, scene, realObjects);
+
+            frameCount++;
         };
 
         updateFrame();

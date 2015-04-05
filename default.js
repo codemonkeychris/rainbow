@@ -4,213 +4,197 @@
 var App;
 (function (App) {
     var HOLO_ALPHA = .6;
-    /**
-     * Returns a two light system, one light at cameraPos, the other a top down ambient light
-     */
-    function basicLights() {
-        return [
-            {
-                name: 'light1',
-                type: 'directionalLight',
-                position: { x: 0, y: 13, z: 3 },
-                relativeTo: "ground1",
-                direction: { x: 0, y: -13, z: .1 },
-                intensity: .7,
-                diffuse: { r: .9, g: .9, b: 1 },
-                specular: { r: 1, g: 1, b: 1 }
-            },
-            {
-                name: 'light2',
-                type: 'pointLight',
-                relativeTo: "$camera",
-                position: { x: 0, y: 0, z: 0 },
-                intensity: .6,
-                diffuse: { r: 1, g: 1, b: 1 },
-                specular: { r: .3, g: .3, b: .3 }
-            }
-        ];
-    }
-    function hudControl(name, hoverModel, material, hoverMaterial, x) {
-        return {
-            name: name,
-            type: 'sphere',
-            position: { x: x, y: -1, z: 3 },
-            relativeTo: '$camera',
-            diameter: .4,
-            segments: 12,
-            material: hoverModel == name ? hoverMaterial : material
-        };
-    }
     function hud(name, hoverModel) {
         var materialName = name + '-mat1';
         var hoverMaterialName = name + '-mat2';
+        function hudControl(name, material, x) {
+            return {
+                name: name,
+                type: 'sphere',
+                position: { x: x, y: -1, z: 3 },
+                relativeTo: '$camera',
+                diameter: .4,
+                segments: 12,
+                material: hoverModel == name ? hoverMaterialName : material
+            };
+        }
+        function ballTextMaterial(name, msg) {
+            return {
+                name: name,
+                type: 'material',
+                specularColor: { r: 0, g: 0, b: 0 },
+                alpha: HOLO_ALPHA,
+                diffuseTexture: {
+                    type: 'dynamicTexture',
+                    name: name + "-texture",
+                    width: 128,
+                    height: 128,
+                    wAng: Math.PI / 2,
+                    vScale: -1,
+                    vOffset: -.25,
+                    uOffset: -.1,
+                    renderCallback: 'function callback(texture) { texture.drawText("' + msg + '", null, 80, "bold 70px Segoe UI", "white", "#555555"); }; callback;'
+                }
+            };
+        }
         return [
             ballTextMaterial('plus', '+'),
             ballTextMaterial('minus', '-'),
             ballTextMaterial('random', 'R'),
             { name: hoverMaterialName, type: 'material', diffuseColor: { r: 1, g: 0.2, b: .2 }, alpha: HOLO_ALPHA },
-            hudControl(name + "-hud1", hoverModel, 'plus', hoverMaterialName, -.5),
-            hudControl(name + "-hud2", hoverModel, 'minus', hoverMaterialName, 0),
-            hudControl(name + "-hud3", hoverModel, 'random', hoverMaterialName, .5)
+            hudControl(name + "-hud1", 'plus', -.5),
+            hudControl(name + "-hud2", 'minus', 0),
+            hudControl(name + "-hud3", 'random', .5)
         ];
     }
-    function diffuse(name, url) {
-        return { name: name, type: 'material', diffuseTexture: { type: 'texture', url: url } };
-    }
-    function holo_diffuse(name, url) {
-        return { name: name, type: 'material', diffuseTexture: { type: 'texture', url: url }, alpha: HOLO_ALPHA };
-    }
-    function shadowFor(name, lightName, renderList) {
-        return { name: name, type: 'shadowGenerator', light: lightName, renderList: renderList };
-    }
-    function flatGround(name, width, depth, material) {
-        return {
-            name: name,
-            type: 'ground',
-            position: { x: 0, y: 0, z: 0 },
-            relativeTo: "$origin",
-            width: width,
-            depth: depth,
-            segments: 8,
-            material: material
-        };
-    }
-    function groundFromHeightMap(name, width, depth, minHeight, maxHeight, heightMapUrl, material) {
-        return {
-            name: name,
-            type: 'groundFromHeightMap',
-            position: { x: 0, y: 0, z: 0 },
-            relativeTo: "$origin",
-            width: width,
-            depth: depth,
-            minHeight: minHeight,
-            maxHeight: maxHeight,
-            segments: 8,
-            url: heightMapUrl,
-            material: material
-        };
-    }
-    function table(name, position, relativeTo) {
-        var width = 16;
-        var depth = 8;
-        var legHeight = 4;
-        var legTopSize = 1;
-        var topThickness = .2;
-        var materialName = name + '-wood';
-        function tableLeg(part, position) {
-            return {
-                name: name + "-" + part,
-                type: 'box',
-                position: position,
-                relativeTo: relativeTo,
-                size: 1,
-                scaling: { x: legTopSize, y: legHeight, z: legTopSize },
-                material: materialName
+    function createWorld() {
+        function basicLights() {
+            return [
+                {
+                    name: 'light1',
+                    type: 'directionalLight',
+                    position: { x: 0, y: 13, z: 3 },
+                    relativeTo: "ground1",
+                    direction: { x: 0, y: -13, z: .1 },
+                    intensity: .7,
+                    diffuse: { r: .9, g: .9, b: 1 },
+                    specular: { r: 1, g: 1, b: 1 }
+                },
+                {
+                    name: 'light2',
+                    type: 'pointLight',
+                    relativeTo: "$camera",
+                    position: { x: 0, y: 0, z: 0 },
+                    intensity: .6,
+                    diffuse: { r: 1, g: 1, b: 1 },
+                    specular: { r: .3, g: .3, b: .3 }
+                }
+            ];
+        }
+        function select(pattern) {
+            return function (x) {
+                return x.filter(function (item) { return item.name.indexOf(pattern) != -1; }).map(function (item) { return item.name; });
             };
         }
-        ;
+        function groundFromHeightMap(name, width, depth, minHeight, maxHeight, heightMapUrl, material) {
+            return {
+                name: name,
+                type: 'groundFromHeightMap',
+                position: { x: 0, y: 0, z: 0 },
+                relativeTo: "$origin",
+                width: width,
+                depth: depth,
+                minHeight: minHeight,
+                maxHeight: maxHeight,
+                segments: 8,
+                url: heightMapUrl,
+                material: material
+            };
+        }
+        function table(name, position, relativeTo) {
+            var width = 16;
+            var depth = 8;
+            var legHeight = 4;
+            var legTopSize = 1;
+            var topThickness = .2;
+            var materialName = name + '-wood';
+            function tableLeg(part, position) {
+                return {
+                    name: name + "-" + part,
+                    type: 'box',
+                    position: position,
+                    relativeTo: relativeTo,
+                    size: 1,
+                    scaling: { x: legTopSize, y: legHeight, z: legTopSize },
+                    material: materialName
+                };
+            }
+            ;
+            return [
+                { name: materialName, type: 'material', diffuseTexture: { type: 'texture', url: 'wood.jpg' } },
+                {
+                    name: name + '-v-top',
+                    type: 'box',
+                    position: { x: position.x, y: position.y + legHeight, z: position.z },
+                    relativeTo: relativeTo,
+                    size: 1,
+                    scaling: { x: width, y: topThickness, z: depth },
+                    material: materialName
+                },
+                tableLeg('v-leftfront', {
+                    x: position.x - (width / 2) + (legTopSize / 2),
+                    y: position.y + (legHeight / 2) - (topThickness / 2),
+                    z: position.z - (depth / 2) + (legTopSize / 2)
+                }),
+                tableLeg('v-rightfront', {
+                    x: position.x + (width / 2) - (legTopSize / 2),
+                    y: position.y + (legHeight / 2) - (topThickness / 2),
+                    z: position.z - (depth / 2) + (legTopSize / 2)
+                }),
+                tableLeg('v-leftback', {
+                    x: position.x - (width / 2) + (legTopSize / 2),
+                    y: position.y + (legHeight / 2) - (topThickness / 2),
+                    z: position.z + (depth / 2) - (legTopSize / 2)
+                }),
+                tableLeg('v-rightback', {
+                    x: position.x + (width / 2) - (legTopSize / 2),
+                    y: position.y + (legHeight / 2) - (topThickness / 2),
+                    z: position.z + (depth / 2) - (legTopSize / 2)
+                }),
+            ];
+        }
         return [
-            diffuse(materialName, 'wood.jpg'),
             {
-                name: name + '-v-top',
-                type: 'box',
-                position: { x: position.x, y: position.y + legHeight, z: position.z },
-                relativeTo: relativeTo,
-                size: 1,
-                scaling: { x: width, y: topThickness, z: depth },
-                material: materialName
+                name: 'camera1',
+                type: 'freeCamera',
+                position: { x: 0, y: 10, z: -17 },
+                relativeTo: "$origin",
+                target: { x: 0, y: 5, z: 0 },
+                attachControl: "renderCanvas"
             },
-            tableLeg('v-leftfront', {
-                x: position.x - (width / 2) + (legTopSize / 2),
-                y: position.y + (legHeight / 2) - (topThickness / 2),
-                z: position.z - (depth / 2) + (legTopSize / 2)
-            }),
-            tableLeg('v-rightfront', {
-                x: position.x + (width / 2) - (legTopSize / 2),
-                y: position.y + (legHeight / 2) - (topThickness / 2),
-                z: position.z - (depth / 2) + (legTopSize / 2)
-            }),
-            tableLeg('v-leftback', {
-                x: position.x - (width / 2) + (legTopSize / 2),
-                y: position.y + (legHeight / 2) - (topThickness / 2),
-                z: position.z + (depth / 2) - (legTopSize / 2)
-            }),
-            tableLeg('v-rightback', {
-                x: position.x + (width / 2) - (legTopSize / 2),
-                y: position.y + (legHeight / 2) - (topThickness / 2),
-                z: position.z + (depth / 2) - (legTopSize / 2)
-            }),
+            basicLights(),
+            {
+                name: 'dirt',
+                type: 'material',
+                specularColor: { r: 0, g: 0, b: 0 },
+                diffuseTexture: { type: 'texture', url: 'ground.jpg', uScale: 4, vScale: 4 }
+            },
+            groundFromHeightMap('ground1', 50, 50, 0, 3, "heightMap.png", "dirt"),
+            table('table1', { x: 0, y: 0, z: 0 }, 'ground1'),
+            { name: 'shadow2', type: 'shadowGenerator', light: 'light1', renderList: select("table1-v") }
         ];
     }
-    /**
-     * Returns a function which will seach the tree for any objects with a name matching
-     * pattern.
-     *
-     * @param {string} pattern The string pattern to search names for, for now it is a simple "indexOf" matching
-     *
-     * @return {function(o : Rnb.FlatSceneGraph) => string[]} Function that will search the graph for the specified items
-     */
-    function select(pattern) {
-        return function (x) {
-            return x.filter(function (item) { return item.name.indexOf(pattern) != -1; }).map(function (item) { return item.name; });
-        };
-    }
-    function ballTextMaterial(name, msg) {
-        return {
-            name: name,
-            type: 'material',
-            specularColor: { r: 0, g: 0, b: 0 },
-            alpha: HOLO_ALPHA,
-            diffuseTexture: {
-                type: 'dynamicTexture',
-                name: name + "-texture",
-                width: 128,
-                height: 128,
-                wAng: Math.PI / 2,
-                vScale: -1,
-                vOffset: -.25,
-                uOffset: -.1,
-                renderCallback: 'function callback(texture) { texture.drawText("' + msg + '", null, 80, "bold 70px Segoe UI", "white", "#555555"); }; callback;'
+    function statusMessage(model) {
+        function statusTextMaterial(name, msg1, msg2) {
+            return {
+                name: name,
+                type: 'material',
+                specularColor: { r: 0, g: 0, b: 0 },
+                alpha: HOLO_ALPHA,
+                diffuseTexture: {
+                    type: 'dynamicTexture',
+                    name: name + "-texture",
+                    width: 512,
+                    height: 60,
+                    vScale: 1,
+                    renderCallback: 'function callback(texture) { \n' + '    texture.drawText("' + msg1 + '", 5, 20, "bold 20px Segoe UI", "white", "#555555"); \n' + '    texture.drawText("' + msg2 + '", 5, 40, "bold 16px Segoe UI", "white", null); \n' + '}; callback;'
+                }
+            };
+        }
+        var topStatusName = 'topStatus(' + model.scrollSpeed + ')';
+        return [
+            statusTextMaterial(topStatusName, "Virtualized scrolling through 100 items (current:" + model.scrollSpeed + ")", "+ increase scroll left, - increase scroll right, R randomizes values"),
+            {
+                name: 'status',
+                type: 'plane',
+                position: { x: -1.2, y: -1, z: 3 },
+                scaling: { x: 1.25 / 3, y: .20 / 3, z: 1 },
+                rotation: { x: 0, y: -.2, z: 0 },
+                relativeTo: '$camera',
+                size: 2,
+                material: topStatusName
             }
-        };
-    }
-    function statusText(name, msg1, msg2) {
-        return;
-    }
-    function statusTextMaterial(name, msg1, msg2) {
-        return {
-            name: name,
-            type: 'material',
-            specularColor: { r: 0, g: 0, b: 0 },
-            alpha: HOLO_ALPHA,
-            diffuseTexture: {
-                type: 'dynamicTexture',
-                name: name + "-texture",
-                width: 512,
-                height: 60,
-                vScale: 1,
-                renderCallback: 'function callback(texture) { \n' + '    texture.drawText("' + msg1 + '", 5, 20, "bold 20px Segoe UI", "white", "#555555"); \n' + '    texture.drawText("' + msg2 + '", 5, 40, "bold 16px Segoe UI", "white", null); \n' + '}; callback;'
-            }
-        };
-    }
-    function tileMaterialTexture(name, msg1) {
-        return {
-            type: 'dynamicTexture',
-            name: name,
-            width: 64,
-            height: 64,
-            vScale: 1,
-            renderCallback: 'function callback(texture) { \n' + '    texture.drawText("' + msg1 + '", 0, 40, "bold 20px Consolas", "white", "#555555"); \n' + '}; callback;'
-        };
-    }
-    function tileMaterial(name, msg1) {
-        return {
-            name: name,
-            type: 'material',
-            specularColor: { r: 0, g: 0, b: 0 },
-            alpha: HOLO_ALPHA,
-            diffuseTexture: tileMaterialTexture(name + '-text', msg1)
-        };
+        ];
     }
     function initialize() {
         var values = [];
@@ -270,46 +254,13 @@ var App;
             valuesToRender = valuesToRender.concat(model.values.slice(0, model.columnCount * itemsPerColumn - valuesToRender.length));
         }
         var displayIndex = function (index) { return (index + startIndex) % model.values.length; };
-        var topStatusName = 'topStatus(' + model.scrollSpeed + ')';
         var calcX = function (index) { return 2.5 + offsetX + (((index / itemsPerColumn) | 0) - model.columnCount / 2) * 2.5; };
+        function holo_diffuse(name, url) {
+            return { name: name, type: 'material', diffuseTexture: { type: 'texture', url: url }, alpha: HOLO_ALPHA };
+        }
         return [
-            {
-                name: 'camera1',
-                type: 'freeCamera',
-                position: { x: 0, y: 10, z: -17 },
-                relativeTo: "$origin",
-                target: { x: 0, y: 5, z: 0 },
-                attachControl: "renderCanvas"
-            },
-            ballTextMaterial('text1', 'E'),
-            basicLights(),
-            holo_diffuse('holo_stone', 'seamless_stone_texture.jpg'),
-            {
-                name: 'selected',
-                type: 'material',
-                diffuseColor: { r: 1, g: 0, b: 0 },
-                specularColor: { r: 1, g: 0, b: 0 },
-                alpha: HOLO_ALPHA
-            },
-            {
-                name: 'dirt',
-                type: 'material',
-                specularColor: { r: 0, g: 0, b: 0 },
-                diffuseTexture: { type: 'texture', url: 'ground.jpg', uScale: 4, vScale: 4 }
-            },
-            groundFromHeightMap('ground1', 50, 50, 0, 3, "heightMap.png", "dirt"),
-            table('table1', { x: 0, y: 0, z: 0 }, 'ground1'),
-            statusTextMaterial(topStatusName, "Virtualized scrolling through 100 items (current:" + model.scrollSpeed + ")", "+ increase scroll left, - increase scroll right, R randomizes values"),
-            {
-                name: 'status',
-                type: 'plane',
-                position: { x: -1.2, y: -1, z: 3 },
-                scaling: { x: 1.25 / 3, y: .20 / 3, z: 1 },
-                rotation: { x: 0, y: -.2, z: 0 },
-                relativeTo: '$camera',
-                size: 2,
-                material: topStatusName
-            },
+            createWorld(),
+            statusMessage(model),
             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(function (value) { return holo_diffuse('image(' + value + ')', 'images/' + value + '.jpg'); }),
             valuesToRender.map(function (value, index) { return {
                 name: 'vis(' + displayIndex(index) + ')',
@@ -324,8 +275,7 @@ var App;
                 size: 2,
                 material: 'image(' + value + ')'
             }; }),
-            hud('hud1', model.hover),
-            shadowFor('shadow2', 'light1', select("table1-v"))
+            hud('hud1', model.hover)
         ];
     }
     App.render = render;
@@ -690,9 +640,7 @@ var Rnb;
             for (var i = 0; i < scene.length; i++) {
                 var value = scene[i];
                 if (value instanceof Array) {
-                    // undone: nested composites
-                    //
-                    var composite = value;
+                    var composite = flatten(value);
                     for (var i2 = 0; i2 < composite.length; i2++) {
                         result.push(composite[i2]);
                     }
@@ -843,7 +791,7 @@ var Rnb;
             var model = App.initialize();
             // UNDONE: need to do mouse/etc for x-browser
             //
-            canvas.addEventListener("pointermove", function (evt) {
+            function updateHover(evt) {
                 var pickResult = scene.pick(evt.offsetX, evt.offsetY, function (mesh) {
                     return mesh.name.indexOf("ground") == -1;
                 });
@@ -857,8 +805,10 @@ var Rnb;
                         model.hover = "";
                     }
                 }
-            });
+            }
+            canvas.addEventListener("pointermove", updateHover);
             canvas.addEventListener("pointerup", function (evt) {
+                updateHover(evt);
                 if (model.hover) {
                     model = App.clicked(model);
                 }

@@ -7,7 +7,7 @@ var App;
     /**
      * Returns a two light system, one light at cameraPos, the other a top down ambient light
      */
-    function basicLights(cameraPos) {
+    function basicLights() {
         return [
             {
                 name: 'light1',
@@ -155,37 +155,27 @@ var App;
             return x.filter(function (item) { return item.name.indexOf(pattern) != -1; }).map(function (item) { return item.name; });
         };
     }
-    function ballText(name, msg) {
-        return {
-            type: 'dynamicTexture',
-            name: name,
-            width: 128,
-            height: 128,
-            wAng: Math.PI / 2,
-            vScale: -1,
-            vOffset: -.25,
-            uOffset: -.1,
-            renderCallback: 'function callback(texture) { texture.drawText("' + msg + '", null, 80, "bold 70px Segoe UI", "white", "#555555"); }; callback;'
-        };
-    }
     function ballTextMaterial(name, msg) {
         return {
             name: name,
             type: 'material',
             specularColor: { r: 0, g: 0, b: 0 },
             alpha: HOLO_ALPHA,
-            diffuseTexture: ballText(name + '-text', msg)
+            diffuseTexture: {
+                type: 'dynamicTexture',
+                name: name + "-texture",
+                width: 128,
+                height: 128,
+                wAng: Math.PI / 2,
+                vScale: -1,
+                vOffset: -.25,
+                uOffset: -.1,
+                renderCallback: 'function callback(texture) { texture.drawText("' + msg + '", null, 80, "bold 70px Segoe UI", "white", "#555555"); }; callback;'
+            }
         };
     }
     function statusText(name, msg1, msg2) {
-        return {
-            type: 'dynamicTexture',
-            name: name,
-            width: 512,
-            height: 128,
-            vScale: 1,
-            renderCallback: 'function callback(texture) { \n' + '    texture.drawText("' + msg1 + '", 0, 40, "20px Segoe UI", "white", "#555555"); \n' + '    texture.drawText("' + msg2 + '", 0, 80, "16px Segoe UI", "white", null); \n' + '}; callback;'
-        };
+        return;
     }
     function statusTextMaterial(name, msg1, msg2) {
         return {
@@ -193,7 +183,14 @@ var App;
             type: 'material',
             specularColor: { r: 0, g: 0, b: 0 },
             alpha: HOLO_ALPHA,
-            diffuseTexture: statusText(name + '-text', msg1, msg2)
+            diffuseTexture: {
+                type: 'dynamicTexture',
+                name: name + "-texture",
+                width: 512,
+                height: 128,
+                vScale: 1,
+                renderCallback: 'function callback(texture) { \n' + '    texture.drawText("' + msg1 + '", 0, 40, "20px Segoe UI", "white", "#555555"); \n' + '    texture.drawText("' + msg2 + '", 0, 80, "16px Segoe UI", "white", null); \n' + '}; callback;'
+            }
         };
     }
     function tileMaterialTexture(name, msg1) {
@@ -220,7 +217,14 @@ var App;
         for (var i = 0; i < 100; i++) {
             values.push(i);
         }
-        return { values: values, scrollSpeed: -.2, offsetX: 0, columnStart: 5, columnCount: 7, hover: "" };
+        return {
+            values: values.map(function (x) { return Math.round(Math.random() * 11); }),
+            scrollSpeed: -.2,
+            offsetX: 0,
+            columnStart: 5,
+            columnCount: 7,
+            hover: ""
+        };
     }
     App.initialize = initialize;
     // UNDONE: need real click registration
@@ -235,7 +239,7 @@ var App;
                 model.scrollSpeed = (((model.scrollSpeed * 100) + 5) | 0) / 100;
                 break;
             case "hud1-hud3":
-                model.values = model.values.map(function (x) { return Math.round(Math.random() * 5); });
+                model.values = model.values.map(function (x) { return Math.round(Math.random() * 11); });
                 break;
         }
         model.hover = h;
@@ -256,10 +260,6 @@ var App;
     }
     App.updateModel = updateModel;
     function render(time, model) {
-        var cameraX = (Math.sin(time / 40) * 10);
-        var cameraY = 5;
-        var cameraZ = (Math.sin((time + 20) / 40) * 10);
-        var sphereScale = .5 + Math.abs(Math.sin(time / 20)) * 2;
         var itemsPerColumn = 3;
         var totalColumns = (model.values.length / itemsPerColumn) | 0;
         var offsetX = model.offsetX;
@@ -281,7 +281,7 @@ var App;
                 attachControl: "renderCanvas"
             },
             ballTextMaterial('text1', 'E'),
-            basicLights({ x: cameraX, y: cameraY, z: cameraZ }),
+            basicLights(),
             holo_diffuse('holo_stone', 'seamless_stone_texture.jpg'),
             {
                 name: 'selected',
@@ -303,13 +303,12 @@ var App;
                 name: 'status',
                 type: 'plane',
                 position: { x: -.25, y: 1, z: 3 },
-                // position: {x:0,y:4, z:0},
                 scaling: { x: 1.25, y: .25, z: 1 },
                 relativeTo: '$camera',
                 size: 2,
                 material: topStatusName
             },
-            valuesToRender.map(function (value, index) { return tileMaterial('material(' + displayIndex(index) + '-' + value + ')', displayIndex(index) + ":" + value); }),
+            valuesToRender.map(function (value, index) { return holo_diffuse('material(' + displayIndex(index) + '-' + value + ')', 'images/' + value + '.jpg'); }),
             valuesToRender.map(function (value, index) { return {
                 name: 'vis(' + displayIndex(index) + ')',
                 type: 'plane',

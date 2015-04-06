@@ -90,76 +90,9 @@ module App.Controls {
     }
 }
 
-module App {
+module App.World {
     var HOLO_ALPHA = .6;
     import R=Rainbow;
-    import C = App.Controls;
-
-    // UNDONE: the number of times "listView1" appears in this file indicates something is
-    // broken... you have to declare the model slot for state, the variable to cache
-    // the instance, the initialize, etc... just seems very not DRY (don't repeat yourself)
-    //
-
-    interface Model {
-        values: number[];
-        listView1: C.ListViewViewModel;
-        hover: string;
-    }
-
-    interface HudButton {
-        text: string;
-        clicked: (any) => void;
-    }
-
-    function hud(name: string, hoverModel: string, buttons : HudButton[]): R.SceneGraph {
-        var hoverMaterialName = name + '-mat2';
-
-        function hudControl(name: string, material: string, x: number) {
-            return {
-                name: name,
-                type: 'sphere',
-                position: { x: x, y: -1, z: 3 },
-                relativeTo: '$camera',
-                diameter: .3,
-                segments: 12,
-                material: hoverModel == name ? material + "-selected" : material
-            }
-        }
-
-        function ballTextMaterial(name: string, msg: string, selected: boolean) {
-            return <R.Material>{
-                name: name,
-                type: 'material',
-                specularColor: { r: 0, g: 0, b: 0 },
-                alpha: HOLO_ALPHA,
-                diffuseTexture: <R.DynamicTexture>{
-                    type: 'dynamicTexture',
-                    name: name + "-texture",
-                    width: 128,
-                    height: 128,
-                    wAng: Math.PI / 2,
-                    vScale: -1,
-                    vOffset: -.25,
-                    uOffset: -.1,
-                    renderCallback: 'function callback(texture) { texture.drawText("' + msg + '", null, 80, "50px Segoe UI", "black", "'+ (selected ? '#FF0000' : '#CCCCCC') + '"); }; callback;'
-                }
-            };
-        }
-
-        var scene : R.SceneGraph = buttons.map((button, index) => {
-            var button_name = name + "-hud" + index;
-            click_handlers[button_name] = button.clicked;
-
-            return [
-                ballTextMaterial(button_name+'-mat', button.text, false),
-                ballTextMaterial(button_name+'-mat-selected', button.text, true),
-                hudControl(button_name, button_name+'-mat', index/3)
-            ];
-        });
-        scene.push({ name: hoverMaterialName, type: 'material', diffuseColor: { r: 1, g: 0.2, b: .2 }, alpha: HOLO_ALPHA });
-
-        return scene;
-    }
 
     function createWorld(): R.SceneGraph {
         function  basicLights(): R.SceneGraph {
@@ -285,6 +218,173 @@ module App {
         ];
     }
 
+    export interface HudButton {
+        text: string;
+        clicked: (any) => void;
+    }
+
+    var click_handlers = {};
+
+    function statusMessage(msg1: string, msg2: string) : R.SceneGraph {
+        function statusTextMaterial(name: string) {
+            return <R.Material>{
+                name: name,
+                type: 'material',
+                specularColor: { r: 0, g: 0, b: 0 },
+                alpha: HOLO_ALPHA,
+                diffuseTexture: <R.DynamicTexture>{
+                    type: 'dynamicTexture',
+                    name: name + "-texture",
+                    width: 512,
+                    height: 60,
+                    vScale: 1,
+                    renderCallback:
+                    'function callback(texture) { \n' +
+                    '    texture.drawText("' + msg1 + '", 5, 20, "bold 20px Segoe UI", "white", "#555555"); \n' +
+                    '    texture.drawText("' + msg2 + '", 5, 40, "bold 16px Segoe UI", "white", null); \n' +
+                    '}; callback;'
+                }
+            };
+        }
+
+        var topStatusName = 'topStatus';
+        return [
+            statusTextMaterial(topStatusName),
+            <R.Plane>{
+                name: 'status',
+                type: 'plane',
+                position: { x: -1.2, y: -1, z: 3 },
+                scaling: { x: 1.25 / 3, y: .20 / 3, z: 1 },
+                rotation: { x: 0, y: -.2, z: 0 },
+                relativeTo: '$camera',
+                size: 2,
+                material: topStatusName
+            }
+        ];
+    }
+
+    function hud(name: string, hoverModel: string, buttons : HudButton[]): R.SceneGraph {
+        var hoverMaterialName = name + '-mat2';
+
+        function hudControl(name: string, material: string, x: number) {
+            return {
+                name: name,
+                type: 'sphere',
+                position: { x: x, y: -1, z: 3 },
+                relativeTo: '$camera',
+                diameter: .3,
+                segments: 12,
+                material: hoverModel == name ? material + "-selected" : material
+            }
+        }
+
+        function ballTextMaterial(name: string, msg: string, selected: boolean) {
+            return <R.Material>{
+                name: name,
+                type: 'material',
+                specularColor: { r: 0, g: 0, b: 0 },
+                alpha: HOLO_ALPHA,
+                diffuseTexture: <R.DynamicTexture>{
+                    type: 'dynamicTexture',
+                    name: name + "-texture",
+                    width: 128,
+                    height: 128,
+                    wAng: Math.PI / 2,
+                    vScale: -1,
+                    vOffset: -.25,
+                    uOffset: -.1,
+                    renderCallback: 'function callback(texture) { texture.drawText("' + msg + '", null, 80, "50px Segoe UI", "black", "'+ (selected ? '#FF0000' : '#CCCCCC') + '"); }; callback;'
+                }
+            };
+        }
+
+        var scene : R.SceneGraph = buttons.map((button, index) => {
+            var button_name = name + "-hud" + index;
+            click_handlers[button_name] = button.clicked;
+
+            return [
+                ballTextMaterial(button_name+'-mat', button.text, false),
+                ballTextMaterial(button_name+'-mat-selected', button.text, true),
+                hudControl(button_name, button_name+'-mat', index/3)
+            ];
+        });
+        scene.push({ name: hoverMaterialName, type: 'material', diffuseColor: { r: 1, g: 0.2, b: .2 }, alpha: HOLO_ALPHA });
+
+        return scene;
+    }
+
+    export interface WorldModel<TModel extends { position?: R.Vector3; relativeTo?: string; hover?: string }> {
+        model: TModel;
+        hover: string;
+    }
+
+    // UNDONE: what should the model be for the HUD?
+    //
+    export function makeWorldComponent<TModel extends { position?: R.Vector3; relativeTo?: string; hover?: string }>(
+        rootComponent : R.Runtime.Component<TModel, TModel>, 
+        statusLine1 : string,
+        statusLine2 : string,
+        buttons : HudButton[]) : R.Runtime.Component<WorldModel<TModel>, WorldModel<TModel>> {
+        return {
+            updateModel: function(frameNumber: number, model: WorldModel<TModel>) { 
+                model.model.hover = model.hover;
+                var nested = rootComponent.updateModel(frameNumber, model.model);
+                return { model: nested, hover: nested.hover };
+            },
+            initialize: function () : WorldModel<TModel> { 
+                // UNDONE: hardcode what we are relative to... eventually want this
+                // to be clickable to move the rendering around... :)
+                //
+                var nested = rootComponent.initialize();
+                nested.position = { x: 0, y: 0, z: 0 };
+                nested.relativeTo = "table1-v-top";
+
+                return { model: nested, hover: "" };
+            },
+            clicked: function (model: WorldModel<TModel>) { 
+                if (rootComponent.clicked) {
+                    model.model.hover = model.hover;
+                    var nested = rootComponent.clicked(model.model);
+                    model = { model: nested, hover: nested.hover };
+                }
+
+                if (click_handlers[model.hover]) {
+                    // UNDONE: should click handlers return a new model, or just mutate?
+                    click_handlers[model.hover](model.model);
+                }
+                return model;
+            },
+            render: function(frameNumber: number, model: WorldModel<TModel>, data: WorldModel<TModel>): R.SceneGraph {
+                return [
+                    createWorld(),
+                    rootComponent.render(frameNumber, model.model, data.model),
+                    hud('hud1', model.hover, buttons),
+                    statusMessage(statusLine1, statusLine2)
+                ];
+            }
+        }
+    }
+
+}
+
+module App {
+    var HOLO_ALPHA = .6;
+    import R = Rainbow;
+    import C = App.Controls;
+
+    // UNDONE: the number of times "listView1" appears in this file indicates something is
+    // broken... you have to declare the model slot for state, the variable to cache
+    // the instance, the initialize, etc... just seems very not DRY (don't repeat yourself)
+    //
+
+    interface Model {
+        values: number[];
+        listView1: C.ListViewViewModel;
+        hover?: string;
+        position?: R.Vector3; 
+        relativeTo?: string;
+    }
+
     function updateModel(time : number, model: Model) {
         model.listView1 = listView1.updateModel(time, model.listView1);
         return model;
@@ -299,61 +399,12 @@ module App {
         }
         return {
             values: values.map(x=> Math.round(Math.random() * 11)),
-            listView1: listView1.initialize(),
-            hover: ""
+            listView1: listView1.initialize()
         };
     }
 
-    // UNDONE: real eventing model
-    //
-    var click_handlers = {};
-    function clicked(model: Model) {
-        if (click_handlers[model.hover]) {
-            click_handlers[model.hover](model);
-        }
-        return model;
-    }
-
     function render(time: number, model: Model): R.SceneGraph {
-        function statusMessage(scrollSpeed : number) : R.SceneGraph {
-            function statusTextMaterial(name: string, msg1: string, msg2: string) {
-                return <R.Material>{
-                    name: name,
-                    type: 'material',
-                    specularColor: { r: 0, g: 0, b: 0 },
-                    alpha: HOLO_ALPHA,
-                    diffuseTexture: <R.DynamicTexture>{
-                        type: 'dynamicTexture',
-                        name: name + "-texture",
-                        width: 512,
-                        height: 60,
-                        vScale: 1,
-                        renderCallback:
-                        'function callback(texture) { \n' +
-                        '    texture.drawText("' + msg1 + '", 5, 20, "bold 20px Segoe UI", "white", "#555555"); \n' +
-                        '    texture.drawText("' + msg2 + '", 5, 40, "bold 16px Segoe UI", "white", null); \n' +
-                        '}; callback;'
-                    }
-                };
-            }
 
-            var topStatusName = 'topStatus(' + scrollSpeed + ')';
-            return [
-                statusTextMaterial(topStatusName,
-                    "Virtualized scrolling through 100 items (current:" + scrollSpeed + ")",
-                    "< increase scroll left, > increase scroll right, R randomizes values"),
-                <R.Plane>{
-                    name: 'status',
-                    type: 'plane',
-                    position: { x: -1.2, y: -1, z: 3 },
-                    scaling: { x: 1.25 / 3, y: .20 / 3, z: 1 },
-                    rotation: { x: 0, y: -.2, z: 0 },
-                    relativeTo: '$camera',
-                    size: 2,
-                    material: topStatusName
-                }
-            ];
-        }
         function holo_diffuse(name: string, url: string)  {
             return <R.StandardMaterial>{ name: name, type: 'material', diffuseTexture: { type: 'texture', url: url }, alpha: HOLO_ALPHA };
         }
@@ -361,19 +412,34 @@ module App {
         // UNDONE: this feels ugly... also random - why are these properties here, but the
         // render callback is set in the constructor... 
         //
-        model.listView1.relativeTo = 'table1-v-top';
-        model.listView1.position = { x: 0, y: 0, z: 0 };
+        model.listView1.relativeTo = model.relativeTo;
+        model.listView1.position = model.position;
         model.listView1.tileSize = 2;
 
         return <R.SceneGraph>[
-            createWorld(),
-            statusMessage(model.listView1.scrollSpeed),
-
             // since this is a web demo, we cache all 12 images in textures to avoid re-downloading
             //
             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((value) => holo_diffuse('image(' + value + ')', 'images/' + value + '.jpg')),
-            listView1.render(time, model.listView1, model.values),
-            hud('hud1', model.hover, [
+            listView1.render(time, model.listView1, model.values)
+        ];
+    };
+
+    // Simplistic startup, need to think about the app bootstrap and actual app model.
+    // Lots of questions - for example should we embrace React for the HTML UI and just go all in?
+    //
+    window.addEventListener("load", (function() {
+        var canvas = <HTMLCanvasElement>document.getElementById("renderCanvas");
+
+        R.Runtime.start(canvas, 
+            App.World.makeWorldComponent({ 
+                initialize: initialize, 
+                clicked: null, 
+                updateModel:updateModel, 
+                render:render 
+            },
+            "Virtualized scrolling through 100 items",
+            "< increase scroll left, > increase scroll right, R randomizes values",
+            [
                 {
                     text:'<', 
                     clicked: (model)=> {
@@ -395,16 +461,7 @@ module App {
                     }
                 },
             ])
-        ];
-    };
-
-    // Simplistic startup, need to think about the app bootstrap and actual app model.
-    // Lots of questions - for example should we embrace React for the HTML UI and just go all in?
-    //
-    window.addEventListener("load", (function() {
-        var canvas = <HTMLCanvasElement>document.getElementById("renderCanvas");
-
-        R.Runtime.start<Model>(canvas, { initialize: initialize, clicked:clicked, updateModel:updateModel, render:render });
+        );
     }));    
 }
 

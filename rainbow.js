@@ -529,12 +529,16 @@ var Rainbow;
                 updateHover(evt);
                 if (model.hover && rootComponent.clicked) {
                     model = rootComponent.clicked(model);
+                    if (!model)
+                        throw "need a model!";
                 }
             });
             var frameCount = 0;
             var updateFrame = function () {
                 if (rootComponent.updateModel) {
                     model = rootComponent.updateModel(frameCount, model);
+                    if (!model)
+                        throw "need a model!";
                 }
                 lastDom = diff(lastDom, rootComponent.render(frameCount, model, model));
                 lastDom = applyActions(lastDom, scene, realObjects);

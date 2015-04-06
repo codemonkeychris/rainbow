@@ -29,7 +29,7 @@ module App {
 
             // Normally only the camera and ground are position relative
             // to $origin, but for a simple starter, we don't have a ground
-            //model.listView1.relativeTo = 
+            //
             return [
                 <R.FreeCamera>{
                     name: 'camera1',

@@ -5,9 +5,12 @@
 module App {
     var HOLO_ALPHA = .6;
 
+    interface HudButton {
+        text: string;
+        clicked: (any) => void;
+    }
 
-    function hud(name: string, hoverModel: string): Rnb.SceneGraph {
-        var materialName = name + '-mat1';
+    function hud(name: string, hoverModel: string, buttons : HudButton[]): Rnb.SceneGraph {
         var hoverMaterialName = name + '-mat2';
 
         function hudControl(name: string, material: string, x: number) {
@@ -16,13 +19,13 @@ module App {
                 type: 'sphere',
                 position: { x: x, y: -1, z: 3 },
                 relativeTo: '$camera',
-                diameter: .4,
+                diameter: .3,
                 segments: 12,
-                material: hoverModel == name ? hoverMaterialName : material
+                material: hoverModel == name ? material + "-selected" : material
             }
         }
 
-        function ballTextMaterial(name: string, msg: string) {
+        function ballTextMaterial(name: string, msg: string, selected: boolean) {
             return <Rnb.Material>{
                 name: name,
                 type: 'material',
@@ -37,20 +40,24 @@ module App {
                     vScale: -1,
                     vOffset: -.25,
                     uOffset: -.1,
-                    renderCallback: 'function callback(texture) { texture.drawText("' + msg + '", null, 80, "bold 70px Segoe UI", "white", "#555555"); }; callback;'
+                    renderCallback: 'function callback(texture) { texture.drawText("' + msg + '", null, 80, "50px Segoe UI", "black", "'+ (selected ? '#FF0000' : '#CCCCCC') + '"); }; callback;'
                 }
             };
         }
 
-        return [
-            ballTextMaterial('plus', '+'),
-            ballTextMaterial('minus', '-'),
-            ballTextMaterial('random', 'R'),
-            { name: hoverMaterialName, type: 'material', diffuseColor: { r: 1, g: 0.2, b: .2 }, alpha: HOLO_ALPHA },
-            hudControl(name + "-hud1", 'plus', -.5),
-            hudControl(name + "-hud2", 'minus', 0),
-            hudControl(name + "-hud3", 'random', .5)
-        ];
+        var scene : Rnb.SceneGraph = buttons.map((button, index) => {
+            var button_name = name + "-hud" + index;
+            click_handlers[button_name] = button.clicked;
+
+            return [
+                ballTextMaterial(button_name+'-mat', button.text, false),
+                ballTextMaterial(button_name+'-mat-selected', button.text, true),
+                hudControl(button_name, button_name+'-mat', index/3)
+            ];
+        });
+        scene.push({ name: hoverMaterialName, type: 'material', diffuseColor: { r: 1, g: 0.2, b: .2 }, alpha: HOLO_ALPHA });
+
+        return scene;
     }
 
     function createWorld(): Rnb.SceneGraph {
@@ -242,7 +249,6 @@ module App {
     // UNDONE: need a way for components to update their viewModel
     //
     var hackViewModelUpdateHandler;
-
     export function updateModel(time, model) {
         if (hackViewModelUpdateHandler) {
             model = hackViewModelUpdateHandler(time, model);
@@ -250,7 +256,6 @@ module App {
         return model;
     }
 
-    
     export function initialize() {
         var values = [];
         for (var i = 0; i < 100; i++) {
@@ -267,23 +272,14 @@ module App {
             hover: ""
         };
     }
-    // UNDONE: need real click registration
+
+    // UNDONE: real eventing model
     //
+    var click_handlers = {};
     export function clicked(model) {
-        var h = model.hover;
-        var listView1 = <ListViewViewModel>model.listView1;
-        switch (model.hover) {
-            case "hud1-hud1":
-                listView1.scrollSpeed = (((listView1.scrollSpeed * 100) - 5) | 0) / 100;
-                break;
-            case "hud1-hud2":
-                listView1.scrollSpeed = (((listView1.scrollSpeed * 100) + 5) | 0) / 100;
-                break;
-            case "hud1-hud3":
-                model.values = model.values.map(x=> Math.round(Math.random() * 11));
-                break;
+        if (click_handlers[model.hover]) {
+            click_handlers[model.hover](model);
         }
-        model.hover = h;
         return model;
     }
 
@@ -314,7 +310,7 @@ module App {
             return [
                 statusTextMaterial(topStatusName,
                     "Virtualized scrolling through 100 items (current:" + scrollSpeed + ")",
-                    "+ increase scroll left, - increase scroll right, R randomizes values"),
+                    "< increase scroll left, > increase scroll right, R randomizes values"),
                 <Rnb.Plane>{
                     name: 'status',
                     type: 'plane',
@@ -334,6 +330,7 @@ module App {
         return <Rnb.SceneGraph>[
             createWorld(),
             statusMessage(model.listView1.scrollSpeed),
+
             // since this is a web demo, we cache all 12 images in textures to avoid re-downloading
             //
             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((value) => holo_diffuse('image(' + value + ')', 'images/' + value + '.jpg')),
@@ -344,7 +341,28 @@ module App {
                 {x:0,y:0,z:0}, 
                 2,
                 value => 'image(' + value + ')'),
-            hud('hud1', model.hover)
+            hud('hud1', model.hover, [
+                {
+                    text:'<', 
+                    clicked: (model)=> {
+                        var listView1 = <ListViewViewModel>model.listView1;
+                        listView1.scrollSpeed = (((listView1.scrollSpeed * 100) - 5) | 0) / 100;
+                    }
+                },
+                {
+                    text:'>', 
+                    clicked: (model)=> {
+                        var listView1 = <ListViewViewModel>model.listView1;
+                        listView1.scrollSpeed = (((listView1.scrollSpeed * 100) + 5) | 0) / 100;
+                    }
+                },
+                {
+                    text:'R', 
+                    clicked: (model)=> {
+                        model.values = model.values.map(x=> Math.round(Math.random() * 11));
+                    }
+                },
+            ])
         ];
     };
 }

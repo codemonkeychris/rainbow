@@ -4,8 +4,7 @@
 var App;
 (function (App) {
     var HOLO_ALPHA = .6;
-    function hud(name, hoverModel) {
-        var materialName = name + '-mat1';
+    function hud(name, hoverModel, buttons) {
         var hoverMaterialName = name + '-mat2';
         function hudControl(name, material, x) {
             return {
@@ -13,12 +12,12 @@ var App;
                 type: 'sphere',
                 position: { x: x, y: -1, z: 3 },
                 relativeTo: '$camera',
-                diameter: .4,
+                diameter: .3,
                 segments: 12,
-                material: hoverModel == name ? hoverMaterialName : material
+                material: hoverModel == name ? material + "-selected" : material
             };
         }
-        function ballTextMaterial(name, msg) {
+        function ballTextMaterial(name, msg, selected) {
             return {
                 name: name,
                 type: 'material',
@@ -33,19 +32,21 @@ var App;
                     vScale: -1,
                     vOffset: -.25,
                     uOffset: -.1,
-                    renderCallback: 'function callback(texture) { texture.drawText("' + msg + '", null, 80, "bold 70px Segoe UI", "white", "#555555"); }; callback;'
+                    renderCallback: 'function callback(texture) { texture.drawText("' + msg + '", null, 80, "50px Segoe UI", "black", "' + (selected ? '#FF0000' : '#CCCCCC') + '"); }; callback;'
                 }
             };
         }
-        return [
-            ballTextMaterial('plus', '+'),
-            ballTextMaterial('minus', '-'),
-            ballTextMaterial('random', 'R'),
-            { name: hoverMaterialName, type: 'material', diffuseColor: { r: 1, g: 0.2, b: .2 }, alpha: HOLO_ALPHA },
-            hudControl(name + "-hud1", 'plus', -.5),
-            hudControl(name + "-hud2", 'minus', 0),
-            hudControl(name + "-hud3", 'random', .5)
-        ];
+        var scene = buttons.map(function (button, index) {
+            var button_name = name + "-hud" + index;
+            click_handlers[button_name] = button.clicked;
+            return [
+                ballTextMaterial(button_name + '-mat', button.text, false),
+                ballTextMaterial(button_name + '-mat-selected', button.text, true),
+                hudControl(button_name, button_name + '-mat', index / 3)
+            ];
+        });
+        scene.push({ name: hoverMaterialName, type: 'material', diffuseColor: { r: 1, g: 0.2, b: .2 }, alpha: HOLO_ALPHA });
+        return scene;
     }
     function createWorld() {
         function basicLights() {
@@ -232,23 +233,13 @@ var App;
         };
     }
     App.initialize = initialize;
-    // UNDONE: need real click registration
+    // UNDONE: real eventing model
     //
+    var click_handlers = {};
     function clicked(model) {
-        var h = model.hover;
-        var listView1 = model.listView1;
-        switch (model.hover) {
-            case "hud1-hud1":
-                listView1.scrollSpeed = (((listView1.scrollSpeed * 100) - 5) | 0) / 100;
-                break;
-            case "hud1-hud2":
-                listView1.scrollSpeed = (((listView1.scrollSpeed * 100) + 5) | 0) / 100;
-                break;
-            case "hud1-hud3":
-                model.values = model.values.map(function (x) { return Math.round(Math.random() * 11); });
-                break;
+        if (click_handlers[model.hover]) {
+            click_handlers[model.hover](model);
         }
-        model.hover = h;
         return model;
     }
     App.clicked = clicked;
@@ -272,7 +263,7 @@ var App;
             }
             var topStatusName = 'topStatus(' + scrollSpeed + ')';
             return [
-                statusTextMaterial(topStatusName, "Virtualized scrolling through 100 items (current:" + scrollSpeed + ")", "+ increase scroll left, - increase scroll right, R randomizes values"),
+                statusTextMaterial(topStatusName, "Virtualized scrolling through 100 items (current:" + scrollSpeed + ")", "< increase scroll left, > increase scroll right, R randomizes values"),
                 {
                     name: 'status',
                     type: 'plane',
@@ -293,7 +284,28 @@ var App;
             statusMessage(model.listView1.scrollSpeed),
             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(function (value) { return holo_diffuse('image(' + value + ')', 'images/' + value + '.jpg'); }),
             listView('listView1', model.listView1, model.values, 'table1-v-top', { x: 0, y: 0, z: 0 }, 2, function (value) { return 'image(' + value + ')'; }),
-            hud('hud1', model.hover)
+            hud('hud1', model.hover, [
+                {
+                    text: '<',
+                    clicked: function (model) {
+                        var listView1 = model.listView1;
+                        listView1.scrollSpeed = (((listView1.scrollSpeed * 100) - 5) | 0) / 100;
+                    }
+                },
+                {
+                    text: '>',
+                    clicked: function (model) {
+                        var listView1 = model.listView1;
+                        listView1.scrollSpeed = (((listView1.scrollSpeed * 100) + 5) | 0) / 100;
+                    }
+                },
+                {
+                    text: 'R',
+                    clicked: function (model) {
+                        model.values = model.values.map(function (x) { return Math.round(Math.random() * 11); });
+                    }
+                },
+            ])
         ];
     }
     App.render = render;

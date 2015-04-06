@@ -1,5 +1,5 @@
-# React & BabylonJS (RNB)
-An experiment in bringing together React style programming and 3D environments.
+# Rainbow
+An experiment in bringing together React style programming and 3D environments using BabylonJS.
 
 ## Basic model
 The basic design is much like [ReactJS](https://github.com/reactjs) (and should 
@@ -79,9 +79,43 @@ var App;
 All objects in the system should be relativeTo another object. The design is to model
 after holograms, where they are always "pinned" to an object in 3D space. The only exception
 (in holograms) is the surface reconstruction - that is pinned to the real world. Since
-we don't have actual reconstructed surfaces, the "$origin" hack denotes objects positioned in
-fixed space. "$camera" will position objects relative to your camera, which is the equivalent
+we don't have actual reconstructed surfaces, the `"$origin"` hack denotes objects positioned in
+fixed space. `"$camera"` will position objects relative to your camera, which is the equivalent 
 of pinning an object to the user's eyes.
+
+The 'correct' way of using Rainbow is to leverage the world construction module, this tries 
+to simulate HoloLens surface reconstruction.
+
+```js
+var App;
+(function (App) {
+    var R = Rainbow;
+    var root = {
+        render: function (frameNumber, model, data) {
+            return [
+                {
+                    type: 'box',
+                    name: 'shape1',
+                    size: 3,
+                    rotation: { x: 0, y: frameNumber / 60, z: 0 },
+                    position: { x: data.position.x, y: data.position.y + 2, z: data.position.z },
+                    relativeTo: data.relativeTo
+                }
+            ];
+        }
+    };
+    window.addEventListener("load", (function () {
+        var canvas = document.getElementById("renderCanvas");
+        R.Runtime.start(canvas, R.World.make(root));
+    }));
+})(App || (App = {}));
+```
+![Using world construction](readme_intro_preview.jpg "Using world construction")
+
+The key line here is `R.World.make(root)` which creates the surfaces representing the physical world
+and calls into your 3D renderer. You now can skip creating lights, cameras, and the ground. The data
+model must have a `relativeTo` and `position` members which are used to push the information about
+where in the world you are expected to place your "holograms".
 
 
 ## Functional evaluation

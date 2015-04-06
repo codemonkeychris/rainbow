@@ -17,9 +17,7 @@ var App;
                     offsetX: 0,
                     columnStart: 5,
                     columnCount: 7,
-                    relativeTo: '$camera',
-                    tileSize: 2,
-                    position: { x: 0, y: 0, z: 3 }
+                    tileSize: 2
                 };
             };
             ListView.prototype.updateModel = function (time, model) {
@@ -114,7 +112,7 @@ var App;
     //
     window.addEventListener("load", (function () {
         var canvas = document.getElementById("renderCanvas");
-        R.Runtime.start(canvas, W.makeWorldComponent({
+        R.Runtime.start(canvas, W.make({
             initialize: initialize,
             clicked: null,
             updateModel: updateModel,

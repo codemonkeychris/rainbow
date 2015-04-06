@@ -453,9 +453,7 @@ module Rainbow.World {
         hover: string;
     }
 
-    // UNDONE: what should the model be for the HUD?
-    //
-    export function makeWorldComponent<TModel extends { position?: R.Vector3; relativeTo?: string; hover?: string }>(
+    export function make<TModel extends { position?: R.Vector3; relativeTo?: string; hover?: string }>(
         rootComponent : R.Runtime.Component<TModel, TModel>, 
         statusLine1? : string,
         statusLine2? : string,
@@ -463,14 +461,19 @@ module Rainbow.World {
         return {
             updateModel: function(frameNumber: number, model: WorldModel<TModel>) { 
                 model.model.hover = model.hover;
-                var nested = rootComponent.updateModel(frameNumber, model.model);
-                return { model: nested, hover: nested.hover };
+                if (rootComponent.updateModel) {
+                    var nested = rootComponent.updateModel(frameNumber, model.model);
+                    return { model: nested, hover: nested.hover };
+                }
+                else {
+                    return model;
+                }
             },
             initialize: function () : WorldModel<TModel> { 
                 // UNDONE: hardcode what we are relative to... eventually want this
                 // to be clickable to move the rendering around... :)
                 //
-                var nested = rootComponent.initialize();
+                var nested = rootComponent.initialize ? rootComponent.initialize() : <TModel>{ };
                 nested.position = { x: 0, y: 0, z: 0 };
                 nested.relativeTo = "table1-v-top";
 
@@ -1096,7 +1099,7 @@ module Rainbow.Runtime {
 
 
     // UNDONE: obviously "extends {hover:string}" is temporary... 
-    export function start<TModel extends { hover: string }>(
+    export function start<TModel extends { hover?: string }>(
         canvas : HTMLCanvasElement, 
         rootComponent : Component<TModel, TModel>) {
 

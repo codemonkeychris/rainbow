@@ -20,9 +20,7 @@ module App.Controls {
                 offsetX: 0,
                 columnStart: 5,
                 columnCount: 7,
-                relativeTo: '$camera',
                 tileSize: 2,
-                position: {x:0, y:0, z:3}
             };
         }
         updateModel(time: number, model: ListViewViewModel) {
@@ -84,9 +82,9 @@ module App.Controls {
         columnStart: number;
         columnCount: number;
         scrollSpeed: number;
-        relativeTo: string;
-        position: R.Vector3;
         tileSize: number;
+        relativeTo?: string;
+        position?: R.Vector3;
     }
 }
 
@@ -155,7 +153,7 @@ module App {
         var canvas = <HTMLCanvasElement>document.getElementById("renderCanvas");
 
         R.Runtime.start(canvas, 
-            W.makeWorldComponent({ 
+            W.make({ 
                 initialize: initialize, 
                 clicked: null, 
                 updateModel:updateModel, 

@@ -199,20 +199,23 @@ var Rainbow;
             scene.push({ name: hoverMaterialName, type: 'material', diffuseColor: { r: 1, g: 0.2, b: .2 }, alpha: HOLO_ALPHA });
             return scene;
         }
-        // UNDONE: what should the model be for the HUD?
-        //
-        function makeWorldComponent(rootComponent, statusLine1, statusLine2, buttons) {
+        function make(rootComponent, statusLine1, statusLine2, buttons) {
             return {
                 updateModel: function (frameNumber, model) {
                     model.model.hover = model.hover;
-                    var nested = rootComponent.updateModel(frameNumber, model.model);
-                    return { model: nested, hover: nested.hover };
+                    if (rootComponent.updateModel) {
+                        var nested = rootComponent.updateModel(frameNumber, model.model);
+                        return { model: nested, hover: nested.hover };
+                    }
+                    else {
+                        return model;
+                    }
                 },
                 initialize: function () {
                     // UNDONE: hardcode what we are relative to... eventually want this
                     // to be clickable to move the rendering around... :)
                     //
-                    var nested = rootComponent.initialize();
+                    var nested = rootComponent.initialize ? rootComponent.initialize() : {};
                     nested.position = { x: 0, y: 0, z: 0 };
                     nested.relativeTo = "table1-v-top";
                     return { model: nested, hover: "" };
@@ -239,7 +242,7 @@ var Rainbow;
                 }
             };
         }
-        World.makeWorldComponent = makeWorldComponent;
+        World.make = make;
     })(World = Rainbow.World || (Rainbow.World = {}));
 })(Rainbow || (Rainbow = {}));
 var Rainbow;

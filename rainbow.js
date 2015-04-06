@@ -3,6 +3,247 @@
 ///<reference path='Babylon.js-2.0/babylon.2.0.d.ts' />
 var Rainbow;
 (function (Rainbow) {
+    var World;
+    (function (World) {
+        var HOLO_ALPHA = .6;
+        function createWorld() {
+            function basicLights() {
+                return [
+                    {
+                        name: 'light1',
+                        type: 'directionalLight',
+                        position: { x: 0, y: 13, z: 3 },
+                        relativeTo: "ground1",
+                        direction: { x: 0, y: -13, z: .1 },
+                        intensity: .7,
+                        diffuse: { r: .9, g: .9, b: 1 },
+                        specular: { r: 1, g: 1, b: 1 }
+                    },
+                    {
+                        name: 'light2',
+                        type: 'pointLight',
+                        relativeTo: "$camera",
+                        position: { x: 0, y: 0, z: 0 },
+                        intensity: .6,
+                        diffuse: { r: 1, g: 1, b: 1 },
+                        specular: { r: .3, g: .3, b: .3 }
+                    }
+                ];
+            }
+            function select(pattern) {
+                return function (x) {
+                    return x.filter(function (item) { return item.name.indexOf(pattern) != -1; }).map(function (item) { return item.name; });
+                };
+            }
+            function groundFromHeightMap(name, width, depth, minHeight, maxHeight, heightMapUrl, material) {
+                return {
+                    name: name,
+                    type: 'groundFromHeightMap',
+                    position: { x: 0, y: 0, z: 0 },
+                    relativeTo: "$origin",
+                    width: width,
+                    depth: depth,
+                    minHeight: minHeight,
+                    maxHeight: maxHeight,
+                    segments: 64,
+                    url: heightMapUrl,
+                    material: material
+                };
+            }
+            function table(name, position, relativeTo) {
+                var width = 16;
+                var depth = 8;
+                var legHeight = 4;
+                var legTopSize = 1;
+                var topThickness = .2;
+                var materialName = name + '-wood';
+                function tableLeg(part, position) {
+                    return {
+                        name: name + "-" + part,
+                        type: 'box',
+                        position: position,
+                        relativeTo: relativeTo,
+                        size: 1,
+                        scaling: { x: legTopSize, y: legHeight, z: legTopSize },
+                        material: materialName
+                    };
+                }
+                ;
+                return [
+                    { name: materialName, type: 'material', diffuseTexture: { type: 'texture', url: 'wood.jpg' } },
+                    {
+                        name: name + '-v-top',
+                        type: 'box',
+                        position: { x: position.x, y: position.y + legHeight, z: position.z },
+                        relativeTo: relativeTo,
+                        size: 1,
+                        scaling: { x: width, y: topThickness, z: depth },
+                        material: materialName
+                    },
+                    tableLeg('v-leftfront', {
+                        x: position.x - (width / 2) + (legTopSize / 2),
+                        y: position.y + (legHeight / 2) - (topThickness / 2),
+                        z: position.z - (depth / 2) + (legTopSize / 2)
+                    }),
+                    tableLeg('v-rightfront', {
+                        x: position.x + (width / 2) - (legTopSize / 2),
+                        y: position.y + (legHeight / 2) - (topThickness / 2),
+                        z: position.z - (depth / 2) + (legTopSize / 2)
+                    }),
+                    tableLeg('v-leftback', {
+                        x: position.x - (width / 2) + (legTopSize / 2),
+                        y: position.y + (legHeight / 2) - (topThickness / 2),
+                        z: position.z + (depth / 2) - (legTopSize / 2)
+                    }),
+                    tableLeg('v-rightback', {
+                        x: position.x + (width / 2) - (legTopSize / 2),
+                        y: position.y + (legHeight / 2) - (topThickness / 2),
+                        z: position.z + (depth / 2) - (legTopSize / 2)
+                    }),
+                ];
+            }
+            return [
+                {
+                    name: 'camera1',
+                    type: 'freeCamera',
+                    position: { x: 0, y: 10, z: -17 },
+                    relativeTo: "$origin",
+                    target: { x: 0, y: 5, z: 0 },
+                    attachControl: "renderCanvas"
+                },
+                basicLights(),
+                {
+                    name: 'dirt',
+                    type: 'material',
+                    diffuseTexture: { type: 'texture', url: 'ground.jpg', uScale: 4, vScale: 4 }
+                },
+                groundFromHeightMap('ground1', 50, 50, 0, 3, "heightMap.png", "dirt"),
+                table('table1', { x: 0, y: 0, z: 0 }, 'ground1'),
+                { name: 'shadow2', type: 'shadowGenerator', light: 'light1', renderList: select("table1-v") }
+            ];
+        }
+        var click_handlers = {};
+        function statusMessage(msg1, msg2) {
+            function statusTextMaterial(name) {
+                return {
+                    name: name,
+                    type: 'material',
+                    specularColor: { r: 0, g: 0, b: 0 },
+                    alpha: HOLO_ALPHA,
+                    diffuseTexture: {
+                        type: 'dynamicTexture',
+                        name: name + "-texture",
+                        width: 512,
+                        height: 60,
+                        vScale: 1,
+                        renderCallback: 'function callback(texture) { \n' + '    texture.drawText("' + msg1 + '", 5, 20, "bold 20px Segoe UI", "white", "#555555"); \n' + '    texture.drawText("' + (msg2 ? msg2 : "") + '", 5, 40, "bold 16px Segoe UI", "white", null); \n' + '}; callback;'
+                    }
+                };
+            }
+            var topStatusName = 'topStatus';
+            return [
+                statusTextMaterial(topStatusName),
+                {
+                    name: 'status',
+                    type: 'plane',
+                    position: { x: -1.2, y: -1, z: 3 },
+                    scaling: { x: 1.25 / 3, y: .20 / 3, z: 1 },
+                    rotation: { x: 0, y: -.2, z: 0 },
+                    relativeTo: '$camera',
+                    size: 2,
+                    material: topStatusName
+                }
+            ];
+        }
+        function hud(name, hoverModel, buttons) {
+            var hoverMaterialName = name + '-mat2';
+            function hudControl(name, material, x) {
+                return {
+                    name: name,
+                    type: 'sphere',
+                    position: { x: x, y: -1, z: 3 },
+                    relativeTo: '$camera',
+                    diameter: .3,
+                    segments: 12,
+                    material: hoverModel == name ? material + "-selected" : material
+                };
+            }
+            function ballTextMaterial(name, msg, selected) {
+                return {
+                    name: name,
+                    type: 'material',
+                    specularColor: { r: 0, g: 0, b: 0 },
+                    alpha: HOLO_ALPHA,
+                    diffuseTexture: {
+                        type: 'dynamicTexture',
+                        name: name + "-texture",
+                        width: 128,
+                        height: 128,
+                        wAng: Math.PI / 2,
+                        vScale: -1,
+                        vOffset: -.25,
+                        uOffset: -.1,
+                        renderCallback: 'function callback(texture) { texture.drawText("' + msg + '", null, 80, "50px Segoe UI", "black", "' + (selected ? '#FF0000' : '#CCCCCC') + '"); }; callback;'
+                    }
+                };
+            }
+            var scene = buttons.map(function (button, index) {
+                var button_name = name + "-hud" + index;
+                click_handlers[button_name] = button.clicked;
+                return [
+                    ballTextMaterial(button_name + '-mat', button.text, false),
+                    ballTextMaterial(button_name + '-mat-selected', button.text, true),
+                    hudControl(button_name, button_name + '-mat', index / 3)
+                ];
+            });
+            scene.push({ name: hoverMaterialName, type: 'material', diffuseColor: { r: 1, g: 0.2, b: .2 }, alpha: HOLO_ALPHA });
+            return scene;
+        }
+        // UNDONE: what should the model be for the HUD?
+        //
+        function makeWorldComponent(rootComponent, statusLine1, statusLine2, buttons) {
+            return {
+                updateModel: function (frameNumber, model) {
+                    model.model.hover = model.hover;
+                    var nested = rootComponent.updateModel(frameNumber, model.model);
+                    return { model: nested, hover: nested.hover };
+                },
+                initialize: function () {
+                    // UNDONE: hardcode what we are relative to... eventually want this
+                    // to be clickable to move the rendering around... :)
+                    //
+                    var nested = rootComponent.initialize();
+                    nested.position = { x: 0, y: 0, z: 0 };
+                    nested.relativeTo = "table1-v-top";
+                    return { model: nested, hover: "" };
+                },
+                clicked: function (model) {
+                    if (rootComponent.clicked) {
+                        model.model.hover = model.hover;
+                        var nested = rootComponent.clicked(model.model);
+                        model = { model: nested, hover: nested.hover };
+                    }
+                    if (click_handlers[model.hover]) {
+                        // UNDONE: should click handlers return a new model, or just mutate?
+                        click_handlers[model.hover](model.model);
+                    }
+                    return model;
+                },
+                render: function (frameNumber, model, data) {
+                    return [
+                        createWorld(),
+                        rootComponent.render(frameNumber, model.model, data.model),
+                        buttons && hud('hud1', model.hover, buttons),
+                        (statusLine1 || statusLine2) && statusMessage(statusLine1, statusLine2)
+                    ];
+                }
+            };
+        }
+        World.makeWorldComponent = makeWorldComponent;
+    })(World = Rainbow.World || (Rainbow.World = {}));
+})(Rainbow || (Rainbow = {}));
+var Rainbow;
+(function (Rainbow) {
     var Runtime;
     (function (Runtime) {
         // UNDONE to enabled $camera, we stash away a camera reference. Seems like there
@@ -353,7 +594,7 @@ var Rainbow;
             }
         };
         // JS records don't compose well in functional contexts, you can't merged function records easily (a+b), 
-        // so I opt'd for a simple {type:'composite'} which will be flattened before processing and completely
+        // so I opt'd for a simple nested array convention which will be flattened before processing and completely
         // erased.
         //
         function flatten(scene) {
@@ -363,10 +604,12 @@ var Rainbow;
                 if (value instanceof Array) {
                     var composite = flatten(value);
                     for (var i2 = 0; i2 < composite.length; i2++) {
-                        result.push(composite[i2]);
+                        if (composite[i2]) {
+                            result.push(composite[i2]);
+                        }
                     }
                 }
-                else {
+                else if (value) {
                     result.push(value);
                 }
             }

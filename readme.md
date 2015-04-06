@@ -9,34 +9,59 @@ and the runtime will diff the DOM against the current state and update the UI to
 match with minimal cost. 
 
 ```js
-function render() {
-    return [
-        {
-            name: 'camera1',
-            type: 'freeCamera',
-            relativeTo: "$origin",
-            position: { x: 5, y: 5, z: -10 },
-            target: {x:0, y:0, z:0}
-        },
-        {
-            name: 'light1',
-            type: 'directionalLight',
-            relativeTo: "$origin",
-            position: { x: 5, y: 5, z: -10 },
-            direction: {x:-1, y:-1, z:10},
-            intensity: .7,
-            diffuse: {r:.9, g:.9, b:1},
-            specular: {r:1, g:1, b:1},
-        },
-        {
-            name: 'sphere1',
-            type: 'sphere',
-            relativeTo: "$origin",
-            position: { x: 0, y: 0, z: 0 }, 
-            size: 3
-        }
-    ];
-};
+var App;
+(function (App) {
+    var R = Rainbow;
+
+    // Update model on each frame tick
+    // 
+    function updateModel(frameNumber, model) { return model; }
+
+    // Create initial state of model
+    // 
+    function initialize() { return { hover: "" }; }
+
+    // Update model in response to clicking
+    // 
+    function clicked(model) { return model; }
+
+    // Create the scene graph for a current point in time
+    //    
+    function render(frameNumber, model) {
+        return [
+            {
+                name: 'camera1',
+                type: 'freeCamera',
+                position: { x: 0, y: 10, z: -17 },
+                relativeTo: "$origin",
+                target: { x: 0, y: 5, z: 0 },
+                attachControl: "renderCanvas"
+            },
+            {
+                name: 'light1',
+                type: 'pointLight',
+                position: { x: 0, y: 0, z: 0 },
+                relativeTo: "$camera",
+                intensity: .7,
+                diffuse: { r: .9, g: .9, b: 1 },
+                specular: { r: 1, g: 1, b: 1 }
+            },
+            {
+                type: 'box',
+                name: 'shape1',
+                size: 3,
+                position: { x: 0, y: 0, z: 0 },
+                rotation: { x:frameNumber/120, y:-.5, z:-.5 },
+                relativeTo: "$origin"
+            }
+        ];
+    }
+
+    window.addEventListener("load", (function () {
+        var canvas = document.getElementById("renderCanvas");
+        R.Runtime.start(canvas, initialize, clicked, updateModel, render);
+    }));
+})(App || (App = {}));
 ```
 ![Rendering a simple scene](readme_preview.jpg "Rendering a simple scene")
 
@@ -57,9 +82,7 @@ function light(name) {
     return {
         name: name,
         type: 'directionalLight',
-        x: 5, 
-        y: 5, 
-        z: -10,
+        position: { x: 5, y: 5, z: -10 },
         direction: {x:-1, y:-1, z:10},
         intensity: .7,
         diffuse: {r:.9, g:.9, b:1},
@@ -70,9 +93,7 @@ function sphere(name, size, x, y, z) {
     return {
         name: name,
         type: 'sphere',
-        x: x,
-        y: y,
-        z: z,
+        position: { x: x, y: y, z: z },
         size: size
     };
 }
@@ -82,9 +103,7 @@ function render() {
         {
             name: 'camera1',
             type: 'freeCamera',
-            x: 5, 
-            y: 5, 
-            z: -10,
+            position: { x: 5, y: 5, z: -10 },
             target: {x:0, y:0, z:0}
         },
         light('light1'),

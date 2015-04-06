@@ -268,6 +268,7 @@ var Rainbow;
                     if (item.diffuseColor) {
                         r.diffuseColor = new BABYLON.Color3(item.diffuseColor.r, item.diffuseColor.g, item.diffuseColor.b);
                     }
+                    r.wireframe = item.wireframe;
                     if (item.diffuseTexture) {
                         var sharedTexture;
                         var dynamicTexture;

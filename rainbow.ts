@@ -565,6 +565,7 @@ module Rainbow.Runtime {
                 if (item.diffuseColor) {
                     r.diffuseColor = new BABYLON.Color3(item.diffuseColor.r, item.diffuseColor.g, item.diffuseColor.b);
                 }
+                r.wireframe = item.wireframe;
                 if (item.diffuseTexture) {
                     var sharedTexture: BABYLON.Texture;
                     var dynamicTexture: BABYLON.DynamicTexture;

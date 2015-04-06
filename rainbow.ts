@@ -229,6 +229,19 @@ module Rainbow {
 module Rainbow.Runtime {
     import R = Rainbow;
 
+    // UNDONE: for components with no viewModel (i.e. TModel == TData), this seems redundant... :(
+    //
+    // UNDONE: this seems a bit off... i feel like this is starting down the path of statefull
+    // components, but really I just want a factory for the common methods, and a way of bundling
+    // together the 4 related methods (well, the N related methods as this grows)... 
+    //
+    export interface Component<TModel, TData> {
+        initialize?: () => TModel;
+        clicked?: (TModel) => TModel;
+        updateModel?: (number, TModel) => TModel;
+        render: (number, TModel, TData) => SceneGraph;
+    }
+
     interface ApplyHandlerCallback {
         (rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache);
     }
@@ -807,16 +820,13 @@ module Rainbow.Runtime {
     // UNDONE: obviously "extends {hover:string}" is temporary... 
     export function start<TModel extends { hover: string }>(
         canvas : HTMLCanvasElement, 
-        initialize: ()=>TModel,
-        clicked : (TModel)=>TModel, 
-        updateModel:(number, TModel)=>TModel,
-        render: (number, TModel) => SceneGraph) {
+        rootComponent : Component<TModel, TModel>) {
 
         var engine = new BABYLON.Engine(canvas, true);
         var scene = new BABYLON.Scene(engine);
         var lastDom : R.FlatSceneGraph = null;
         var realObjects : RealObjectsCache = {};
-        var model = initialize();
+        var model = rootComponent.initialize ? rootComponent.initialize() : { hover: "" };
 
         // UNDONE: need to do mouse/etc for x-browser
         //
@@ -840,8 +850,8 @@ module Rainbow.Runtime {
         
         canvas.addEventListener("pointerup", (evt) => {
             updateHover(evt);
-            if (model.hover && clicked) {
-                model = clicked(model);
+            if (model.hover && rootComponent.clicked) {
+                model = rootComponent.clicked(model);
             }
         });
 
@@ -849,8 +859,10 @@ module Rainbow.Runtime {
         var frameCount = 0;
 
         var updateFrame = function() {
-            model = updateModel(frameCount, model);
-            lastDom = diff(lastDom, render(frameCount, model));
+            if (rootComponent.updateModel) {
+                model = rootComponent.updateModel(frameCount, model);
+            }
+            lastDom = diff(lastDom, rootComponent.render(frameCount, model, model));
             lastDom = applyActions(lastDom, scene, realObjects);
 
             frameCount++;

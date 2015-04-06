@@ -500,12 +500,12 @@ var Rainbow;
         }
         ;
         // UNDONE: obviously "extends {hover:string}" is temporary... 
-        function start(canvas, initialize, clicked, updateModel, render) {
+        function start(canvas, rootComponent) {
             var engine = new BABYLON.Engine(canvas, true);
             var scene = new BABYLON.Scene(engine);
             var lastDom = null;
             var realObjects = {};
-            var model = initialize();
+            var model = rootComponent.initialize ? rootComponent.initialize() : { hover: "" };
             // UNDONE: need to do mouse/etc for x-browser
             //
             function updateHover(evt) {
@@ -526,14 +526,16 @@ var Rainbow;
             canvas.addEventListener("pointermove", updateHover);
             canvas.addEventListener("pointerup", function (evt) {
                 updateHover(evt);
-                if (model.hover && clicked) {
-                    model = clicked(model);
+                if (model.hover && rootComponent.clicked) {
+                    model = rootComponent.clicked(model);
                 }
             });
             var frameCount = 0;
             var updateFrame = function () {
-                model = updateModel(frameCount, model);
-                lastDom = diff(lastDom, render(frameCount, model));
+                if (rootComponent.updateModel) {
+                    model = rootComponent.updateModel(frameCount, model);
+                }
+                lastDom = diff(lastDom, rootComponent.render(frameCount, model, model));
                 lastDom = applyActions(lastDom, scene, realObjects);
                 frameCount++;
             };

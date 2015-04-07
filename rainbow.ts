@@ -663,7 +663,7 @@ module Rainbow.Runtime {
         includeExpensive: boolean, 
         forcePositionOnPhysics: boolean,
         realObjects : RealObjectsCache, 
-        r) {
+        r) : void {
         if (item.scaling) {
             r.scaling.x = item.scaling.x;
             r.scaling.y = item.scaling.y;
@@ -684,13 +684,13 @@ module Rainbow.Runtime {
             }
         }
     }
-    function updatePhysicsProps(item: R.Geometry, r : BABYLON.AbstractMesh, physicsImposter) {
+    function updatePhysicsProps(item: R.Geometry, r : BABYLON.AbstractMesh, physicsImposter) : void {
         if (item.enablePhysics) {
             r.setPhysicsState(physicsImposter, 
                 { mass: item.mass, friction : item.friction||1, restitution: item.restitution || 1 });
         }
     }
-    function updateLightProps(item: R.Light, r) {
+    function updateLightProps(item: R.Light, r) : void {
         r.intensity = item.intensity || 1;
         if (item.diffuse) {
             r.diffuse = new BABYLON.Color3(item.diffuse.r, item.diffuse.g, item.diffuse.b);

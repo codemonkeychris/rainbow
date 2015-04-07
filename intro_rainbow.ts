@@ -1,7 +1,7 @@
-///<reference path='Babylon.js-2.0/references/poly2tri.d.ts' />
-///<reference path='Babylon.js-2.0/references/waa.d.ts' />
+///<reference path='Babylon.js-2.0/References/poly2tri.d.ts' />
+///<reference path='Babylon.js-2.0/References/waa.d.ts' />
 ///<reference path='Babylon.js-2.0/babylon.2.0.d.ts' />
-///<reference path='Rainbow.ts' />
+///<reference path='rainbow.ts' />
 
 module App {
     import R=Rainbow;

@@ -1,7 +1,7 @@
-///<reference path='Babylon.js-2.0/references/poly2tri.d.ts' />
-///<reference path='Babylon.js-2.0/references/waa.d.ts' />
+///<reference path='Babylon.js-2.0/References/poly2tri.d.ts' />
+///<reference path='Babylon.js-2.0/References/waa.d.ts' />
 ///<reference path='Babylon.js-2.0/babylon.2.0.d.ts' />
-///<reference path='Rainbow.ts' />
+///<reference path='rainbow.ts' />
 
 module App.Controls {
     import R=Rainbow;
@@ -11,7 +11,7 @@ module App.Controls {
         private renderer: (T) => string;
 
         constructor(name: string, renderer: (T) => string) {
-            this.name = name;
+            this.name = name; 
             this.renderer = renderer;
         }
         initialize(): ListViewViewModel {
@@ -23,7 +23,7 @@ module App.Controls {
                 tileSize: 2,
             };
         }
-        updateModel(time: number, model: ListViewViewModel) {
+        updateModel(time: number, model: ListViewViewModel) : ListViewViewModel {
             var sizeWithPadding = model.tileSize * 1.25;
 
             model.offsetX +=model.scrollSpeed;
@@ -127,7 +127,7 @@ module App {
 
     function render(time: number, model: Model): R.SceneGraph {
 
-        function holo_diffuse(name: string, url: string)  {
+        function holo_diffuse(name: string, url: string) : R.StandardMaterial {
             return <R.StandardMaterial>{ name: name, type: 'material', diffuseTexture: { type: 'texture', url: url }, alpha: HOLO_ALPHA };
         }
 

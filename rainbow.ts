@@ -1,5 +1,5 @@
-///<reference path='Babylon.js-2.0/references/poly2tri.d.ts' />
-///<reference path='Babylon.js-2.0/references/waa.d.ts' />
+///<reference path='Babylon.js-2.0/References/poly2tri.d.ts' />
+///<reference path='Babylon.js-2.0/References/waa.d.ts' />
 ///<reference path='Babylon.js-2.0/babylon.2.0.d.ts' />
 
 module Rainbow {

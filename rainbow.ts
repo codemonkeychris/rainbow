@@ -233,6 +233,12 @@ module Rainbow.World {
     var HOLO_ALPHA = .6;
     import R=Rainbow;
 
+    var worldColors = {
+        table: <R.Color3>{r:244/256,g:122/256,b:99/256},
+        walls: <R.Color3>{r:189/256,g:180/256,b:189/256},
+        floor: <R.Color3>{r:231/256,g:231/256,b:231/256}
+    };
+
 
     export function createWalls(name: string, width:number, depth:number, height: number, position: R.Vector3, relativeTo: string, material: string) {
         var thickness = .5;
@@ -359,7 +365,7 @@ module Rainbow.World {
                 };
             };
             return [
-                { name: materialName, type: 'material', diffuseTexture: { type: 'texture', url: 'wood.jpg' } },
+                { name: materialName, type: 'material', diffuseColor: worldColors.table },
                 <R.Box>{
                     name: name + '-v-top',
                     type: 'box',
@@ -406,11 +412,11 @@ module Rainbow.World {
                 attachControl: "renderCanvas"
             },
             basicLights(),
-            { name: 'walls', type: 'material', diffuseTexture: { type: 'texture', url: 'seamless_stone_texture.jpg' } },
+            { name: 'walls', type: 'material', diffuseColor: worldColors.walls },
             <R.Material>{
                 name: 'dirt',
                 type: 'material',
-                diffuseTexture: <R.Texture>{ type: 'texture', url: 'ground.jpg', uScale: 4, vScale: 4 }
+                diffuseColor: worldColors.floor
             },
             ground('ground1', 50, 50, "dirt"),
             createWalls('wall1', 100, 100, 20, { x: 0, y: 0, z: 0 }, 'ground1', 'walls'),

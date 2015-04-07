@@ -6,6 +6,11 @@ var Rainbow;
     var World;
     (function (World) {
         var HOLO_ALPHA = .6;
+        var worldColors = {
+            table: { r: 244 / 256, g: 122 / 256, b: 99 / 256 },
+            walls: { r: 189 / 256, g: 180 / 256, b: 189 / 256 },
+            floor: { r: 231 / 256, g: 231 / 256, b: 231 / 256 }
+        };
         function createWalls(name, width, depth, height, position, relativeTo, material) {
             var thickness = .5;
             var yOffset = .5 + height / 2;
@@ -126,7 +131,7 @@ var Rainbow;
                 }
                 ;
                 return [
-                    { name: materialName, type: 'material', diffuseTexture: { type: 'texture', url: 'wood.jpg' } },
+                    { name: materialName, type: 'material', diffuseColor: worldColors.table },
                     {
                         name: name + '-v-top',
                         type: 'box',
@@ -172,11 +177,11 @@ var Rainbow;
                     attachControl: "renderCanvas"
                 },
                 basicLights(),
-                { name: 'walls', type: 'material', diffuseTexture: { type: 'texture', url: 'seamless_stone_texture.jpg' } },
+                { name: 'walls', type: 'material', diffuseColor: worldColors.walls },
                 {
                     name: 'dirt',
                     type: 'material',
-                    diffuseTexture: { type: 'texture', url: 'ground.jpg', uScale: 4, vScale: 4 }
+                    diffuseColor: worldColors.floor
                 },
                 ground('ground1', 50, 50, "dirt"),
                 createWalls('wall1', 100, 100, 20, { x: 0, y: 0, z: 0 }, 'ground1', 'walls'),

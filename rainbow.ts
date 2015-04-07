@@ -129,6 +129,10 @@ module Rainbow {
         material?: string;
         scaling?: Vector3;
         rotation?: Vector3;
+        enablePhysics?: boolean;
+        mass?: number;
+        friction?: number;
+        restitution?: number;
     }
     export interface Ground extends Geometry {
         width: number;
@@ -229,6 +233,58 @@ module Rainbow.World {
     var HOLO_ALPHA = .6;
     import R=Rainbow;
 
+
+    export function createWalls(name: string, width:number, depth:number, height: number, position: R.Vector3, relativeTo: string, material: string) {
+        var thickness = .5;
+        var yOffset = .5 + height / 2;
+        return [
+            <R.Box>{ 
+                type: 'box', 
+                name: name + '-left', 
+                size:1, 
+                position: { x: position.x-width/2+thickness/2, y: position.y+yOffset, z: position.z },
+                scaling: { x:thickness, y:height, z:depth-thickness},
+                relativeTo: relativeTo,
+                enablePhysics: true,
+                mass: 20,
+                material: 'mat'
+            },
+            <R.Box>{ 
+                type: 'box', 
+                name:name + '-right', 
+                size:1, 
+                position: { x: position.x+width/2-thickness/2, y: position.y+yOffset, z: position.z },
+                scaling: { x:thickness, y:height, z:depth-thickness},
+                relativeTo: relativeTo,
+                enablePhysics: true,
+                mass: 20,
+                material: 'mat'
+            },
+            <R.Box>{ 
+                type: 'box', 
+                name:name + '-back', 
+                size:1, 
+                position: { x: position.x, y: position.y+yOffset, z: position.z+depth/2 },
+                scaling: { x:width, y:height, z:thickness},
+                relativeTo: relativeTo,
+                enablePhysics: true,
+                mass: 20,
+                material: 'mat'
+            },
+            <R.Box>{ 
+                type: 'box', 
+                name: name + '-front', 
+                size:1, 
+                position: { x: position.x, y: position.y+yOffset, z: position.z-depth/2 },
+                scaling: { x:width, y:height, z:thickness},
+                relativeTo: relativeTo,
+                enablePhysics: true,
+                mass: 20,
+                material: 'mat'
+            },
+        ]
+    }
+    
     function createWorld(): R.SceneGraph {
         function  basicLights(): R.SceneGraph {
             return [
@@ -256,27 +312,27 @@ module Rainbow.World {
         function select(pattern: string): R.FlatSceneGraphToValue<string[]> {
             return function(x) { return x.filter(item => item.name.indexOf(pattern) != -1).map(item=> item.name); };
         }
-        function groundFromHeightMap(
-            name: string,
-            width: number,
-            depth: number,
-            minHeight: number,
-            maxHeight: number,
-            heightMapUrl: string,
-            material: string): R.GroundFromHeightMap {
 
-            return {
+
+        function ground(
+                name: string,
+                width: number,
+                depth: number,
+                material: string) {
+
+            // heightmap based ground doesn't work for physics... boo!
+            return <R.Box>{
                 name: name,
-                type: 'groundFromHeightMap',
+                type: 'box',
                 position: { x: 0, y: 0, z: 0 },
                 relativeTo: "$origin",
-                width: width,
-                depth: depth,
-                minHeight: minHeight,
-                maxHeight: maxHeight,
-                segments: 64,
-                url: heightMapUrl,
-                material: material
+                size:1,
+                scaling: { x: 100, y: 1, z: 100 },
+                material: material,
+                enablePhysics: true,
+                mass: 0,
+                friction:3,
+                restitution: 0.001
             };
         }
         function table(name: string, position: R.Vector3, relativeTo: string): R.SceneGraph {
@@ -295,7 +351,11 @@ module Rainbow.World {
                     relativeTo: relativeTo,
                     size: 1,
                     scaling: { x: legTopSize, y: legHeight, z: legTopSize },
-                    material: materialName
+                    material: materialName,
+                    enablePhysics: true,
+                    mass: 0,
+                    friction: .5,
+                    restitution: .07
                 };
             };
             return [
@@ -307,7 +367,11 @@ module Rainbow.World {
                     relativeTo: relativeTo,
                     size: 1,
                     scaling: { x: width, y: topThickness, z: depth },
-                    material: materialName
+                    material: materialName,
+                    enablePhysics: true,
+                    mass: 0,
+                    friction: 1,
+                    restitution: .07
                 },
                 tableLeg('v-leftfront', {
                     x: position.x - (width / 2) + (legTopSize / 2),
@@ -342,12 +406,14 @@ module Rainbow.World {
                 attachControl: "renderCanvas"
             },
             basicLights(),
+            { name: 'walls', type: 'material', diffuseTexture: { type: 'texture', url: 'seamless_stone_texture.jpg' } },
             <R.Material>{
                 name: 'dirt',
                 type: 'material',
                 diffuseTexture: <R.Texture>{ type: 'texture', url: 'ground.jpg', uScale: 4, vScale: 4 }
             },
-            groundFromHeightMap('ground1', 50, 50, 0, 3, "heightMap.png", "dirt"),
+            ground('ground1', 50, 50, "dirt"),
+            createWalls('wall1', 100, 100, 20, { x: 0, y: 0, z: 0 }, 'ground1', 'walls'),
             table('table1', { x: 0, y: 0, z: 0 }, 'ground1'),
             { name: 'shadow2', type: 'shadowGenerator', light: 'light1', renderList: select("table1-v") }
         ];
@@ -586,7 +652,12 @@ module Rainbow.Runtime {
                 break;
         }
     }
-    function updateGeometryProps(item: R.Geometry, includeExpensive: boolean, realObjects : RealObjectsCache, r) {
+    function updateGeometryProps(
+        item: R.Geometry, 
+        includeExpensive: boolean, 
+        forcePositionOnPhysics: boolean,
+        realObjects : RealObjectsCache, 
+        r) {
         if (item.scaling) {
             r.scaling.x = item.scaling.x;
             r.scaling.y = item.scaling.y;
@@ -597,12 +668,20 @@ module Rainbow.Runtime {
             r.rotation.y = item.rotation.y;
             r.rotation.z = item.rotation.z;
         }
-        updatePosition(item, r, realObjects);
+        if (forcePositionOnPhysics || !item.enablePhysics) {
+            updatePosition(item, r, realObjects);
+        }
         if (includeExpensive) {
             r.receiveShadows = true;
             if (item.material) {
                 r.material = realObjects[item.material];
             }
+        }
+    }
+    function updatePhysicsProps(item: R.Geometry, r : BABYLON.AbstractMesh, physicsImposter) {
+        if (item.enablePhysics) {
+            r.setPhysicsState(physicsImposter, 
+                { mass: item.mass, friction : item.friction||1, restitution: item.restitution || 1 });
         }
     }
     function updateLightProps(item: R.Light, r) {
@@ -619,12 +698,12 @@ module Rainbow.Runtime {
         plane: {
             create: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <R.Plane>rawItem;
-
-                var r = realObjects[item.name] = BABYLON.Mesh.CreatePlane(item.name, item.size, scene);
-                updateGeometryProps(item, true, realObjects, r);
+                var r = BABYLON.Mesh.CreatePlane(item.name, item.size, scene);
+                realObjects[item.name] = r;
+                updateGeometryProps(item, true, true, realObjects, r);
             },
             update: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
-                updateGeometryProps(<R.Plane>rawItem, true, realObjects, realObjects[rawItem.name]);
+                updateGeometryProps(<R.Plane>rawItem, true, false, realObjects, realObjects[rawItem.name]);
             }
             // UNDONE: diff for mesh recreate
         },
@@ -632,23 +711,25 @@ module Rainbow.Runtime {
             create: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <R.Box>rawItem;
 
-                var r = realObjects[item.name] = BABYLON.Mesh.CreateBox(item.name, item.size, scene);
-                updateGeometryProps(item, true, realObjects, r);
+                var r = BABYLON.Mesh.CreateBox(item.name, item.size, scene);
+                realObjects[item.name] = r;
+                updateGeometryProps(item, true, true, realObjects, r);
+                updatePhysicsProps(item, r, BABYLON.PhysicsEngine.BoxImpostor);
             },
             update: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
-                updateGeometryProps(<R.Box>rawItem, true, realObjects, realObjects[rawItem.name]);
+                updateGeometryProps(<R.Box>rawItem, true, false, realObjects, realObjects[rawItem.name]);
             }
-            // UNDONE: diff for mesh recreate
         },
         cylinder: {
             create: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <R.Cylinder>rawItem;
 
                 var r = realObjects[item.name] = BABYLON.Mesh.CreateCylinder(item.name, item.height, item.diameterTop, item.diameterBottom, item.tessellation || 20, item.subdivisions, scene);
-                updateGeometryProps(item, true, realObjects, r);
+                updateGeometryProps(item, true, true, realObjects, r);
+                updatePhysicsProps(item, r, BABYLON.PhysicsEngine.CylinderImpostor);
             },
             update: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
-                updateGeometryProps(<R.Cylinder>rawItem, true, realObjects, realObjects[rawItem.name]);
+                updateGeometryProps(<R.Cylinder>rawItem, true, false, realObjects, realObjects[rawItem.name]);
             },
             diff: function(newItem: R.GraphElement, oldItem: R.GraphElement): R.GraphElement {
 
@@ -688,10 +769,11 @@ module Rainbow.Runtime {
                 var item = <R.Torus>rawItem;
 
                 var r = realObjects[item.name] = BABYLON.Mesh.CreateTorus(item.name, item.diameter, item.thickness, item.tessellation || 20, scene);
-                updateGeometryProps(item, true, realObjects, r);
+                updateGeometryProps(item, true, true, realObjects, r);
+                updatePhysicsProps(item, r, BABYLON.PhysicsEngine.MeshImpostor);
             },
             update: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
-                updateGeometryProps(<R.Torus>rawItem, true, realObjects, realObjects[rawItem.name]);
+                updateGeometryProps(<R.Torus>rawItem, true, false, realObjects, realObjects[rawItem.name]);
             }
             // UNDONE: diff for mesh recreate
         },
@@ -700,11 +782,12 @@ module Rainbow.Runtime {
                 var item = <R.Sphere>rawItem;
 
                 var r = realObjects[item.name] = BABYLON.Mesh.CreateSphere(item.name, item.segments || 16, item.diameter, scene, true);
-                updateGeometryProps(item, true, realObjects, r);
+                updateGeometryProps(item, true, true, realObjects, r);
+                updatePhysicsProps(item, r, BABYLON.PhysicsEngine.SphereImpostor);
             },
             update: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <R.Sphere>rawItem;
-                updateGeometryProps(item, true, realObjects, realObjects[item.name]);
+                updateGeometryProps(item, true, false, realObjects, realObjects[item.name]);
             }
             // UNDONE: diff for mesh recreate
         },
@@ -713,10 +796,11 @@ module Rainbow.Runtime {
                 var item = <R.Ground>rawItem;
 
                 var r = realObjects[item.name] = BABYLON.Mesh.CreateGround(item.name, item.width, item.depth, item.segments, scene);
-                updateGeometryProps(item, true, realObjects, r);
+                updateGeometryProps(item, true, true, realObjects, r);
+                updatePhysicsProps(item, r, BABYLON.PhysicsEngine.MeshImpostor);
             },
             update: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
-                updateGeometryProps(<R.Ground>rawItem, false, realObjects, realObjects[rawItem.name]);
+                updateGeometryProps(<R.Ground>rawItem, false, false, realObjects, realObjects[rawItem.name]);
             }
             // UNDONE: diff for mesh recreate
         },
@@ -734,10 +818,11 @@ module Rainbow.Runtime {
                         item.maxHeight,
                         scene,
                         false);
-                updateGeometryProps(item, true, realObjects, r);
+                updateGeometryProps(item, true, true, realObjects, r);
+                updatePhysicsProps(item, r, BABYLON.PhysicsEngine.MeshImpostor);
             },
             update: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
-                updateGeometryProps(<R.GroundFromHeightMap>rawItem, false, realObjects, realObjects[rawItem.name]);
+                updateGeometryProps(<R.GroundFromHeightMap>rawItem, false, false, realObjects, realObjects[rawItem.name]);
             }
             // UNDONE: diff for mesh recreate
         },
@@ -1105,6 +1190,7 @@ module Rainbow.Runtime {
 
         var engine = new BABYLON.Engine(canvas, true);
         var scene = new BABYLON.Scene(engine);
+        scene.enablePhysics(new BABYLON.Vector3(0, -10, 0), new BABYLON.OimoJSPlugin());
         var lastDom : R.FlatSceneGraph = null;
         var realObjects : RealObjectsCache = {};
         var model = rootComponent.initialize ? rootComponent.initialize() : { hover: "" };

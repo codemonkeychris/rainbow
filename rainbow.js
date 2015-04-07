@@ -6,6 +6,57 @@ var Rainbow;
     var World;
     (function (World) {
         var HOLO_ALPHA = .6;
+        function createWalls(name, width, depth, height, position, relativeTo, material) {
+            var thickness = .5;
+            var yOffset = .5 + height / 2;
+            return [
+                {
+                    type: 'box',
+                    name: name + '-left',
+                    size: 1,
+                    position: { x: position.x - width / 2 + thickness / 2, y: position.y + yOffset, z: position.z },
+                    scaling: { x: thickness, y: height, z: depth - thickness },
+                    relativeTo: relativeTo,
+                    enablePhysics: true,
+                    mass: 20,
+                    material: 'mat'
+                },
+                {
+                    type: 'box',
+                    name: name + '-right',
+                    size: 1,
+                    position: { x: position.x + width / 2 - thickness / 2, y: position.y + yOffset, z: position.z },
+                    scaling: { x: thickness, y: height, z: depth - thickness },
+                    relativeTo: relativeTo,
+                    enablePhysics: true,
+                    mass: 20,
+                    material: 'mat'
+                },
+                {
+                    type: 'box',
+                    name: name + '-back',
+                    size: 1,
+                    position: { x: position.x, y: position.y + yOffset, z: position.z + depth / 2 },
+                    scaling: { x: width, y: height, z: thickness },
+                    relativeTo: relativeTo,
+                    enablePhysics: true,
+                    mass: 20,
+                    material: 'mat'
+                },
+                {
+                    type: 'box',
+                    name: name + '-front',
+                    size: 1,
+                    position: { x: position.x, y: position.y + yOffset, z: position.z - depth / 2 },
+                    scaling: { x: width, y: height, z: thickness },
+                    relativeTo: relativeTo,
+                    enablePhysics: true,
+                    mass: 20,
+                    material: 'mat'
+                },
+            ];
+        }
+        World.createWalls = createWalls;
         function createWorld() {
             function basicLights() {
                 return [
@@ -35,19 +86,20 @@ var Rainbow;
                     return x.filter(function (item) { return item.name.indexOf(pattern) != -1; }).map(function (item) { return item.name; });
                 };
             }
-            function groundFromHeightMap(name, width, depth, minHeight, maxHeight, heightMapUrl, material) {
+            function ground(name, width, depth, material) {
+                // heightmap based ground doesn't work for physics... boo!
                 return {
                     name: name,
-                    type: 'groundFromHeightMap',
+                    type: 'box',
                     position: { x: 0, y: 0, z: 0 },
                     relativeTo: "$origin",
-                    width: width,
-                    depth: depth,
-                    minHeight: minHeight,
-                    maxHeight: maxHeight,
-                    segments: 64,
-                    url: heightMapUrl,
-                    material: material
+                    size: 1,
+                    scaling: { x: 100, y: 1, z: 100 },
+                    material: material,
+                    enablePhysics: true,
+                    mass: 0,
+                    friction: 3,
+                    restitution: 0.001
                 };
             }
             function table(name, position, relativeTo) {
@@ -65,7 +117,11 @@ var Rainbow;
                         relativeTo: relativeTo,
                         size: 1,
                         scaling: { x: legTopSize, y: legHeight, z: legTopSize },
-                        material: materialName
+                        material: materialName,
+                        enablePhysics: true,
+                        mass: 0,
+                        friction: .5,
+                        restitution: .07
                     };
                 }
                 ;
@@ -78,7 +134,11 @@ var Rainbow;
                         relativeTo: relativeTo,
                         size: 1,
                         scaling: { x: width, y: topThickness, z: depth },
-                        material: materialName
+                        material: materialName,
+                        enablePhysics: true,
+                        mass: 0,
+                        friction: 1,
+                        restitution: .07
                     },
                     tableLeg('v-leftfront', {
                         x: position.x - (width / 2) + (legTopSize / 2),
@@ -112,12 +172,14 @@ var Rainbow;
                     attachControl: "renderCanvas"
                 },
                 basicLights(),
+                { name: 'walls', type: 'material', diffuseTexture: { type: 'texture', url: 'seamless_stone_texture.jpg' } },
                 {
                     name: 'dirt',
                     type: 'material',
                     diffuseTexture: { type: 'texture', url: 'ground.jpg', uScale: 4, vScale: 4 }
                 },
-                groundFromHeightMap('ground1', 50, 50, 0, 3, "heightMap.png", "dirt"),
+                ground('ground1', 50, 50, "dirt"),
+                createWalls('wall1', 100, 100, 20, { x: 0, y: 0, z: 0 }, 'ground1', 'walls'),
                 table('table1', { x: 0, y: 0, z: 0 }, 'ground1'),
                 { name: 'shadow2', type: 'shadowGenerator', light: 'light1', renderList: select("table1-v") }
             ];
@@ -295,7 +357,7 @@ var Rainbow;
                     break;
             }
         }
-        function updateGeometryProps(item, includeExpensive, realObjects, r) {
+        function updateGeometryProps(item, includeExpensive, forcePositionOnPhysics, realObjects, r) {
             if (item.scaling) {
                 r.scaling.x = item.scaling.x;
                 r.scaling.y = item.scaling.y;
@@ -306,12 +368,19 @@ var Rainbow;
                 r.rotation.y = item.rotation.y;
                 r.rotation.z = item.rotation.z;
             }
-            updatePosition(item, r, realObjects);
+            if (forcePositionOnPhysics || !item.enablePhysics) {
+                updatePosition(item, r, realObjects);
+            }
             if (includeExpensive) {
                 r.receiveShadows = true;
                 if (item.material) {
                     r.material = realObjects[item.material];
                 }
+            }
+        }
+        function updatePhysicsProps(item, r, physicsImposter) {
+            if (item.enablePhysics) {
+                r.setPhysicsState(physicsImposter, { mass: item.mass, friction: item.friction || 1, restitution: item.restitution || 1 });
             }
         }
         function updateLightProps(item, r) {
@@ -327,31 +396,35 @@ var Rainbow;
             plane: {
                 create: function (rawItem, dom, scene, realObjects) {
                     var item = rawItem;
-                    var r = realObjects[item.name] = BABYLON.Mesh.CreatePlane(item.name, item.size, scene);
-                    updateGeometryProps(item, true, realObjects, r);
+                    var r = BABYLON.Mesh.CreatePlane(item.name, item.size, scene);
+                    realObjects[item.name] = r;
+                    updateGeometryProps(item, true, true, realObjects, r);
                 },
                 update: function (rawItem, dom, scene, realObjects) {
-                    updateGeometryProps(rawItem, true, realObjects, realObjects[rawItem.name]);
+                    updateGeometryProps(rawItem, true, false, realObjects, realObjects[rawItem.name]);
                 }
             },
             box: {
                 create: function (rawItem, dom, scene, realObjects) {
                     var item = rawItem;
-                    var r = realObjects[item.name] = BABYLON.Mesh.CreateBox(item.name, item.size, scene);
-                    updateGeometryProps(item, true, realObjects, r);
+                    var r = BABYLON.Mesh.CreateBox(item.name, item.size, scene);
+                    realObjects[item.name] = r;
+                    updateGeometryProps(item, true, true, realObjects, r);
+                    updatePhysicsProps(item, r, BABYLON.PhysicsEngine.BoxImpostor);
                 },
                 update: function (rawItem, dom, scene, realObjects) {
-                    updateGeometryProps(rawItem, true, realObjects, realObjects[rawItem.name]);
+                    updateGeometryProps(rawItem, true, false, realObjects, realObjects[rawItem.name]);
                 }
             },
             cylinder: {
                 create: function (rawItem, dom, scene, realObjects) {
                     var item = rawItem;
                     var r = realObjects[item.name] = BABYLON.Mesh.CreateCylinder(item.name, item.height, item.diameterTop, item.diameterBottom, item.tessellation || 20, item.subdivisions, scene);
-                    updateGeometryProps(item, true, realObjects, r);
+                    updateGeometryProps(item, true, true, realObjects, r);
+                    updatePhysicsProps(item, r, BABYLON.PhysicsEngine.CylinderImpostor);
                 },
                 update: function (rawItem, dom, scene, realObjects) {
-                    updateGeometryProps(rawItem, true, realObjects, realObjects[rawItem.name]);
+                    updateGeometryProps(rawItem, true, false, realObjects, realObjects[rawItem.name]);
                 },
                 diff: function (newItem, oldItem) {
                     if (!oldItem) {
@@ -384,41 +457,45 @@ var Rainbow;
                 create: function (rawItem, dom, scene, realObjects) {
                     var item = rawItem;
                     var r = realObjects[item.name] = BABYLON.Mesh.CreateTorus(item.name, item.diameter, item.thickness, item.tessellation || 20, scene);
-                    updateGeometryProps(item, true, realObjects, r);
+                    updateGeometryProps(item, true, true, realObjects, r);
+                    updatePhysicsProps(item, r, BABYLON.PhysicsEngine.MeshImpostor);
                 },
                 update: function (rawItem, dom, scene, realObjects) {
-                    updateGeometryProps(rawItem, true, realObjects, realObjects[rawItem.name]);
+                    updateGeometryProps(rawItem, true, false, realObjects, realObjects[rawItem.name]);
                 }
             },
             sphere: {
                 create: function (rawItem, dom, scene, realObjects) {
                     var item = rawItem;
                     var r = realObjects[item.name] = BABYLON.Mesh.CreateSphere(item.name, item.segments || 16, item.diameter, scene, true);
-                    updateGeometryProps(item, true, realObjects, r);
+                    updateGeometryProps(item, true, true, realObjects, r);
+                    updatePhysicsProps(item, r, BABYLON.PhysicsEngine.SphereImpostor);
                 },
                 update: function (rawItem, dom, scene, realObjects) {
                     var item = rawItem;
-                    updateGeometryProps(item, true, realObjects, realObjects[item.name]);
+                    updateGeometryProps(item, true, false, realObjects, realObjects[item.name]);
                 }
             },
             ground: {
                 create: function (rawItem, dom, scene, realObjects) {
                     var item = rawItem;
                     var r = realObjects[item.name] = BABYLON.Mesh.CreateGround(item.name, item.width, item.depth, item.segments, scene);
-                    updateGeometryProps(item, true, realObjects, r);
+                    updateGeometryProps(item, true, true, realObjects, r);
+                    updatePhysicsProps(item, r, BABYLON.PhysicsEngine.MeshImpostor);
                 },
                 update: function (rawItem, dom, scene, realObjects) {
-                    updateGeometryProps(rawItem, false, realObjects, realObjects[rawItem.name]);
+                    updateGeometryProps(rawItem, false, false, realObjects, realObjects[rawItem.name]);
                 }
             },
             groundFromHeightMap: {
                 create: function (rawItem, dom, scene, realObjects) {
                     var item = rawItem;
                     var r = realObjects[item.name] = BABYLON.Mesh.CreateGroundFromHeightMap(item.name, item.url, item.width, item.depth, item.segments, item.minHeight, item.maxHeight, scene, false);
-                    updateGeometryProps(item, true, realObjects, r);
+                    updateGeometryProps(item, true, true, realObjects, r);
+                    updatePhysicsProps(item, r, BABYLON.PhysicsEngine.MeshImpostor);
                 },
                 update: function (rawItem, dom, scene, realObjects) {
-                    updateGeometryProps(rawItem, false, realObjects, realObjects[rawItem.name]);
+                    updateGeometryProps(rawItem, false, false, realObjects, realObjects[rawItem.name]);
                 }
             },
             hemisphericLight: {
@@ -750,6 +827,7 @@ var Rainbow;
         function start(canvas, rootComponent) {
             var engine = new BABYLON.Engine(canvas, true);
             var scene = new BABYLON.Scene(engine);
+            scene.enablePhysics(new BABYLON.Vector3(0, -10, 0), new BABYLON.OimoJSPlugin());
             var lastDom = null;
             var realObjects = {};
             var model = rootComponent.initialize ? rootComponent.initialize() : { hover: "" };

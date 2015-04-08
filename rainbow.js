@@ -5,6 +5,17 @@
 ///<reference path='Babylon.js-2.0/babylon.2.0.d.ts' />
 var Rainbow;
 (function (Rainbow) {
+    (function (BillboardMode) {
+        BillboardMode[BillboardMode["None"] = 0] = "None";
+        BillboardMode[BillboardMode["X"] = 1] = "X";
+        BillboardMode[BillboardMode["Y"] = 2] = "Y";
+        BillboardMode[BillboardMode["Z"] = 3] = "Z";
+        BillboardMode[BillboardMode["All"] = 4] = "All";
+    })(Rainbow.BillboardMode || (Rainbow.BillboardMode = {}));
+    var BillboardMode = Rainbow.BillboardMode;
+})(Rainbow || (Rainbow = {}));
+var Rainbow;
+(function (Rainbow) {
     var World;
     (function (World) {
         var HOLO_ALPHA = .6;
@@ -316,8 +327,62 @@ var Rainbow;
 })(Rainbow || (Rainbow = {}));
 var Rainbow;
 (function (Rainbow) {
+    var Controls;
+    (function (Controls) {
+        var R = Rainbow;
+        var StickyNote = (function () {
+            function StickyNote(name) {
+                this.name = name;
+            }
+            StickyNote.prototype.initialize = function () {
+                return {};
+            };
+            // updateModel(time: number, model: StickyNoteViewModel) : StickyNoteViewModel {
+            //     return model;
+            // }
+            // clicked: function() {
+            // }
+            StickyNote.prototype.render = function (time, viewModel, dataModel) {
+                function statusTextMaterial(name) {
+                    return {
+                        name: name,
+                        type: 'material',
+                        specularColor: { r: 248 / 256, g: 202 / 256, b: 0 },
+                        diffuseTexture: {
+                            type: 'dynamicTexture',
+                            name: name + "-texture",
+                            width: 256,
+                            height: 60,
+                            vScale: 1,
+                            renderCallback: 'function callback(texture) { \n' + '    texture.drawText("' + dataModel[0] + '", 5, 20, "bold 20px Segoe UI", "black", "#F8CA00"); \n' + '    texture.drawText("' + (dataModel[1] ? dataModel[1] : "") + '", 5, 40, "bold 16px Segoe UI", "black", null); \n' + '}; callback;'
+                        }
+                    };
+                }
+                var topStatusName = this.name + '-mat';
+                return [
+                    statusTextMaterial(topStatusName),
+                    {
+                        name: this.name,
+                        type: 'plane',
+                        position: viewModel.position,
+                        scaling: { x: 2, y: .5, z: 1 },
+                        billboardMode: 4 /* All */,
+                        relativeTo: viewModel.relativeTo,
+                        size: 2,
+                        material: topStatusName
+                    }
+                ];
+            };
+            return StickyNote;
+        })();
+        Controls.StickyNote = StickyNote;
+    })(Controls = Rainbow.Controls || (Rainbow.Controls = {}));
+})(Rainbow || (Rainbow = {}));
+var Rainbow;
+(function (Rainbow) {
     var Runtime;
     (function (Runtime) {
+        var R = Rainbow;
         // UNDONE to enabled $camera, we stash away a camera reference. Seems like there
         // should be a cleaner way to do this more generically
         //
@@ -425,6 +490,25 @@ var Rainbow;
             else {
                 if (forcePositionOnPhysics || !item.enablePhysics) {
                     updatePosition(item, r, realObjects);
+                }
+            }
+            if (item.billboardMode) {
+                switch (item.billboardMode) {
+                    case 0 /* None */:
+                        r.billboardMode = BABYLON.Mesh.BILLBOARDMODE_NONE;
+                        break;
+                    case 1 /* X */:
+                        r.billboardMode = BABYLON.Mesh.BILLBOARDMODE_X;
+                        break;
+                    case 2 /* Y */:
+                        r.billboardMode = BABYLON.Mesh.BILLBOARDMODE_Y;
+                        break;
+                    case 3 /* Z */:
+                        r.billboardMode = BABYLON.Mesh.BILLBOARDMODE_Z;
+                        break;
+                    case 4 /* All */:
+                        r.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL;
+                        break;
                 }
             }
             if (includeExpensive) {

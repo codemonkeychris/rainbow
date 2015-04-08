@@ -105,6 +105,7 @@ module App {
     interface Model {
         values: number[];
         listView1: C.ListViewViewModel;
+        sticky1: Rainbow.Controls.StickyNoteViewModel;
         hover?: string;
         position?: R.Vector3; 
         relativeTo?: string;
@@ -116,6 +117,7 @@ module App {
     }
 
     var listView1 = new C.ListView<number[]>('listView1', value => 'image(' + value + ')');
+    var sticky1 = new Rainbow.Controls.StickyNote('sticky1');
 
     function initialize() : Model {
         var values = [];
@@ -124,7 +126,8 @@ module App {
         }
         return {
             values: values.map(x=> Math.round(Math.random() * 11)),
-            listView1: listView1.initialize()
+            listView1: listView1.initialize(),
+            sticky1: sticky1.initialize()
         };
     }
 
@@ -141,11 +144,15 @@ module App {
         model.listView1.position = model.position;
         model.listView1.tileSize = 2;
 
+        model.sticky1.relativeTo = model.relativeTo;
+        model.sticky1.position = { x: model.position.x-7, y: model.position.y+1, z:model.position.z-3 };
+
         return <R.SceneGraph>[
             // since this is a web demo, we cache all 12 images in textures to avoid re-downloading
             //
             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((value) => holo_diffuse('image(' + value + ')', 'images/' + value + '.jpg')),
-            listView1.render(time, model.listView1, model.values)
+            listView1.render(time, model.listView1, model.values),
+            sticky1.render(time, model.sticky1, ["ListView Demonstration", "Scrolling lots of pics!"])
         ];
     };
 

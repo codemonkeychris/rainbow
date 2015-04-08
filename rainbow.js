@@ -362,6 +362,32 @@ var Rainbow;
                     break;
             }
         }
+        function animatePosition(item, r, realObjects) {
+            var relativeTo = item.relativeTo || "$origin";
+            var basePosition = r.position;
+            var offset = BABYLON.Vector3.Zero();
+            switch (relativeTo) {
+                case "$origin":
+                case "$camera":
+                    break;
+                default:
+                    var relative = realObjects[relativeTo];
+                    if (relative) {
+                        offset = relative.position;
+                    }
+                    break;
+            }
+            var maxDistancePerFrame = item.temp_velocity || .1;
+            var goal = new BABYLON.Vector3(item.temp_goalPosition.x, item.temp_goalPosition.y, item.temp_goalPosition.z).add(offset);
+            var delta = goal.subtract(basePosition);
+            var length = delta.length();
+            var scale = 1;
+            if (length > maxDistancePerFrame) {
+                scale = maxDistancePerFrame / length;
+            }
+            var maxWithVelocity = delta.scale(scale);
+            r.position = r.position.add(maxWithVelocity);
+        }
         function updateGeometryProps(item, includeExpensive, forcePositionOnPhysics, realObjects, r) {
             if (item.scaling) {
                 r.scaling.x = item.scaling.x;
@@ -373,8 +399,18 @@ var Rainbow;
                 r.rotation.y = item.rotation.y;
                 r.rotation.z = item.rotation.z;
             }
-            if (forcePositionOnPhysics || !item.enablePhysics) {
-                updatePosition(item, r, realObjects);
+            if (item.temp_goalPosition) {
+                if (forcePositionOnPhysics) {
+                    updatePosition(item, r, realObjects);
+                }
+                else {
+                    animatePosition(item, r, realObjects);
+                }
+            }
+            else {
+                if (forcePositionOnPhysics || !item.enablePhysics) {
+                    updatePosition(item, r, realObjects);
+                }
             }
             if (includeExpensive) {
                 r.receiveShadows = true;
@@ -418,6 +454,7 @@ var Rainbow;
                     updatePhysicsProps(item, r, BABYLON.PhysicsEngine.BoxImpostor);
                 },
                 update: function (rawItem, dom, scene, realObjects) {
+                    var item = rawItem;
                     updateGeometryProps(rawItem, true, false, realObjects, realObjects[rawItem.name]);
                 }
             },

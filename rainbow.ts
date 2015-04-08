@@ -124,6 +124,8 @@ module Rainbow {
     export interface HasPosition {
         position: Vector3;
         relativeTo: string;
+        temp_goalPosition?: Vector3;
+        temp_velocity?: number;
     }
     export interface Geometry extends HasPosition, GraphElement {
         material?: string;
@@ -240,7 +242,7 @@ module Rainbow.World {
     };
 
 
-    export function createWalls(name: string, width:number, depth:number, height: number, position: R.Vector3, relativeTo: string, material: string) {
+    export function createWalls(name: string, width:number, depth:number, height: number, position: R.Vector3, relativeTo: string, material: string) : R.SceneGraph {
         var thickness = .5;
         var yOffset = .5 + height / 2;
         return [
@@ -624,7 +626,7 @@ module Rainbow.Runtime {
     // all of these update handlers are pretty bogus. Once DIFF becomes smart enough, we should clearly only 
     // update the changed values.
     // 
-    function updatePosition(item: R.HasPosition, r : BabylonHasPosition, realObjects : RealObjectsCache) {
+    function updatePosition(item: R.HasPosition, r : BabylonHasPosition, realObjects : RealObjectsCache) : void {
         // eventually "$origin" shouldn't be supported except for surface reconstruction
         //
         var relativeTo = item.relativeTo || "$origin";
@@ -658,12 +660,40 @@ module Rainbow.Runtime {
                 break;
         }
     }
+    function animatePosition(item: R.HasPosition, r : BabylonHasPosition, realObjects : RealObjectsCache) : void {
+        var relativeTo = item.relativeTo || "$origin";
+        var basePosition = r.position;
+        var offset = BABYLON.Vector3.Zero();
+        
+        switch (relativeTo) {
+            case "$origin":
+            case "$camera":
+                break;
+            default:
+                var relative = <BabylonHasPosition>(<any>realObjects[relativeTo]);
+                if (relative) {
+                    offset = relative.position;
+                }
+                break;
+        }
+        
+        var maxDistancePerFrame = item.temp_velocity || .1;
+
+        var goal = new BABYLON.Vector3(item.temp_goalPosition.x, item.temp_goalPosition.y, item.temp_goalPosition.z).add(offset);
+        var delta = goal.subtract(basePosition);
+        var length = delta.length();
+        var scale = 1;   
+        if (length > maxDistancePerFrame) { scale = maxDistancePerFrame/length; }
+        var maxWithVelocity = delta.scale(scale);
+        r.position = r.position.add(maxWithVelocity);
+    }    
     function updateGeometryProps(
         item: R.Geometry, 
         includeExpensive: boolean, 
         forcePositionOnPhysics: boolean,
         realObjects : RealObjectsCache, 
-        r) : void {
+        r : BABYLON.AbstractMesh) : void {
+            
         if (item.scaling) {
             r.scaling.x = item.scaling.x;
             r.scaling.y = item.scaling.y;
@@ -674,13 +704,23 @@ module Rainbow.Runtime {
             r.rotation.y = item.rotation.y;
             r.rotation.z = item.rotation.z;
         }
-        if (forcePositionOnPhysics || !item.enablePhysics) {
-            updatePosition(item, r, realObjects);
+        if (item.temp_goalPosition) {
+            if (forcePositionOnPhysics) {
+                updatePosition(item, r, realObjects);
+            }
+            else {
+                animatePosition(item, r, realObjects);
+            }
+        }
+        else {
+            if (forcePositionOnPhysics || !item.enablePhysics) {
+                updatePosition(item, r, realObjects);
+            }
         }
         if (includeExpensive) {
             r.receiveShadows = true;
             if (item.material) {
-                r.material = realObjects[item.material];
+                r.material = <BABYLON.Material>realObjects[item.material];
             }
         }
     }
@@ -709,7 +749,7 @@ module Rainbow.Runtime {
                 updateGeometryProps(item, true, true, realObjects, r);
             },
             update: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
-                updateGeometryProps(<R.Plane>rawItem, true, false, realObjects, realObjects[rawItem.name]);
+                updateGeometryProps(<R.Plane>rawItem, true, false, realObjects, <BABYLON.AbstractMesh>realObjects[rawItem.name]);
             }
             // UNDONE: diff for mesh recreate
         },
@@ -723,7 +763,8 @@ module Rainbow.Runtime {
                 updatePhysicsProps(item, r, BABYLON.PhysicsEngine.BoxImpostor);
             },
             update: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
-                updateGeometryProps(<R.Box>rawItem, true, false, realObjects, realObjects[rawItem.name]);
+                var item = <R.Box>rawItem;
+                updateGeometryProps(<R.Box>rawItem, true, false, realObjects, <BABYLON.AbstractMesh>realObjects[rawItem.name]);
             }
         },
         cylinder: {
@@ -735,7 +776,7 @@ module Rainbow.Runtime {
                 updatePhysicsProps(item, r, BABYLON.PhysicsEngine.CylinderImpostor);
             },
             update: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
-                updateGeometryProps(<R.Cylinder>rawItem, true, false, realObjects, realObjects[rawItem.name]);
+                updateGeometryProps(<R.Cylinder>rawItem, true, false, realObjects, <BABYLON.AbstractMesh>realObjects[rawItem.name]);
             },
             diff: function(newItem: R.GraphElement, oldItem: R.GraphElement): R.GraphElement {
 
@@ -779,7 +820,7 @@ module Rainbow.Runtime {
                 updatePhysicsProps(item, r, BABYLON.PhysicsEngine.MeshImpostor);
             },
             update: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
-                updateGeometryProps(<R.Torus>rawItem, true, false, realObjects, realObjects[rawItem.name]);
+                updateGeometryProps(<R.Torus>rawItem, true, false, realObjects, <BABYLON.AbstractMesh>realObjects[rawItem.name]);
             }
             // UNDONE: diff for mesh recreate
         },
@@ -793,7 +834,7 @@ module Rainbow.Runtime {
             },
             update: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <R.Sphere>rawItem;
-                updateGeometryProps(item, true, false, realObjects, realObjects[item.name]);
+                updateGeometryProps(item, true, false, realObjects, <BABYLON.AbstractMesh>realObjects[item.name]);
             }
             // UNDONE: diff for mesh recreate
         },
@@ -806,7 +847,7 @@ module Rainbow.Runtime {
                 updatePhysicsProps(item, r, BABYLON.PhysicsEngine.MeshImpostor);
             },
             update: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
-                updateGeometryProps(<R.Ground>rawItem, false, false, realObjects, realObjects[rawItem.name]);
+                updateGeometryProps(<R.Ground>rawItem, false, false, realObjects, <BABYLON.AbstractMesh>realObjects[rawItem.name]);
             }
             // UNDONE: diff for mesh recreate
         },
@@ -828,7 +869,7 @@ module Rainbow.Runtime {
                 updatePhysicsProps(item, r, BABYLON.PhysicsEngine.MeshImpostor);
             },
             update: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
-                updateGeometryProps(<R.GroundFromHeightMap>rawItem, false, false, realObjects, realObjects[rawItem.name]);
+                updateGeometryProps(<R.GroundFromHeightMap>rawItem, false, false, realObjects, <BABYLON.AbstractMesh>realObjects[rawItem.name]);
             }
             // UNDONE: diff for mesh recreate
         },

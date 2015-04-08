@@ -139,6 +139,13 @@ module Rainbow {
         relativeTo: string;
         animation?: Animate;
     }
+    export enum BillboardMode {
+        None,
+        X,
+        Y,
+        Z,
+        All
+    }
     export interface Geometry extends HasPosition<AnimateGeometry>, GraphElement {
         material?: string;
         scaling?: Vector3;
@@ -147,6 +154,7 @@ module Rainbow {
         mass?: number;
         friction?: number;
         restitution?: number;
+        billboardMode?: BillboardMode;
     }
     export interface Ground extends Geometry {
         width: number;
@@ -590,6 +598,66 @@ module Rainbow.World {
     }    
 }
 
+module Rainbow.Controls {
+    import R = Rainbow;
+
+    export class StickyNote implements R.Runtime.Component<StickyNoteViewModel, [string,string]> {
+        private name: string;
+
+        constructor(name: string) {
+            this.name = name; 
+        }
+        initialize(): StickyNoteViewModel {
+            return { };
+        }
+        // updateModel(time: number, model: StickyNoteViewModel) : StickyNoteViewModel {
+        //     return model;
+        // }
+        // clicked: function() {
+        // }
+        render(time : number, viewModel: StickyNoteViewModel, dataModel: [string,string]) : R.SceneGraph {
+            function statusTextMaterial(name: string) : R.Material {
+                return <R.Material>{
+                    name: name,
+                    type: 'material',
+                    specularColor: { r: 248/256,g:202/256,b:0 },
+                    diffuseTexture: <R.DynamicTexture>{
+                        type: 'dynamicTexture',
+                        name: name + "-texture",
+                        width: 256,
+                        height: 60,
+                        vScale: 1,
+                        renderCallback:
+                        'function callback(texture) { \n' +
+                        '    texture.drawText("' + dataModel[0] + '", 5, 20, "bold 20px Segoe UI", "black", "#F8CA00"); \n' +
+                        '    texture.drawText("' + (dataModel[1] ? dataModel[1] : "") + '", 5, 40, "bold 16px Segoe UI", "black", null); \n' +
+                        '}; callback;'
+                    }
+                };
+            }
+
+            var topStatusName = this.name + '-mat';
+            return [
+                statusTextMaterial(topStatusName),
+                <R.Plane>{
+                    name: this.name,
+                    type: 'plane',
+                    position: viewModel.position,
+                    scaling: { x: 2, y: .5, z: 1 },
+                    billboardMode: R.BillboardMode.All,
+                    relativeTo: viewModel.relativeTo,
+                    size: 2,
+                    material: topStatusName
+                }
+            ];
+        }
+    }
+    export interface StickyNoteViewModel {
+        relativeTo?: string;
+        position?: R.Vector3;
+    }
+}
+
 module Rainbow.Runtime {
     import R = Rainbow;
 
@@ -748,6 +816,26 @@ module Rainbow.Runtime {
         else {
             if (forcePositionOnPhysics || !item.enablePhysics) {
                 updatePosition(item, r, realObjects);
+            }
+        }
+        if (item.billboardMode)
+        {
+            switch (item.billboardMode) {
+                case R.BillboardMode.None:
+                    r.billboardMode = BABYLON.Mesh.BILLBOARDMODE_NONE;
+                    break;
+                case R.BillboardMode.X:
+                    r.billboardMode = BABYLON.Mesh.BILLBOARDMODE_X;
+                    break;
+                case R.BillboardMode.Y:
+                    r.billboardMode = BABYLON.Mesh.BILLBOARDMODE_Y;
+                    break;
+                case R.BillboardMode.Z:
+                    r.billboardMode = BABYLON.Mesh.BILLBOARDMODE_Z;
+                    break;
+                case R.BillboardMode.All:
+                    r.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL;
+                    break;
             }
         }
         if (includeExpensive) {

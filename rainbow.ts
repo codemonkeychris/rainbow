@@ -326,7 +326,7 @@ module Rainbow.World {
                 name: string,
                 width: number,
                 depth: number,
-                material: string) {
+                material: string) : R.Box {
 
             // heightmap based ground doesn't work for physics... boo!
             return <R.Box>{
@@ -351,7 +351,7 @@ module Rainbow.World {
             var topThickness = .2;
             var materialName = name + '-wood';
 
-            function tableLeg(part: string, position: R.Vector3) {
+            function tableLeg(part: string, position: R.Vector3) : R.Box {
                 return <R.Box>{
                     name: name + "-" + part,
                     type: 'box',
@@ -435,7 +435,7 @@ module Rainbow.World {
     var click_handlers = {};
 
     function statusMessage(msg1: string, msg2: string) : R.SceneGraph {
-        function statusTextMaterial(name: string) {
+        function statusTextMaterial(name: string) : R.Material {
             return <R.Material>{
                 name: name,
                 type: 'material',
@@ -475,7 +475,7 @@ module Rainbow.World {
     function hud(name: string, hoverModel: string, buttons : HudButton[]): R.SceneGraph {
         var hoverMaterialName = name + '-mat2';
 
-        function hudControl(name: string, material: string, x: number) {
+        function hudControl(name: string, material: string, x: number) : R.Sphere {
             return {
                 name: name,
                 type: 'sphere',
@@ -487,7 +487,7 @@ module Rainbow.World {
             }
         }
 
-        function ballTextMaterial(name: string, msg: string, selected: boolean) {
+        function ballTextMaterial(name: string, msg: string, selected: boolean) : R.Material {
             return <R.Material>{
                 name: name,
                 type: 'material',
@@ -1176,8 +1176,8 @@ module Rainbow.Runtime {
     // Poorly factored and horribly inneficient. This started as 20 lines, and kept growing. 
     // Desparately needs refactoring and some design work
     //
-    function applyActions(dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects) {
-        var result = [];
+    function applyActions(dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects) : R.FlatSceneGraph {
+        var result : R.FlatSceneGraph = [];
 
         var updateCount = 0;
 
@@ -1233,7 +1233,7 @@ module Rainbow.Runtime {
     // UNDONE: obviously "extends {hover:string}" is temporary... 
     export function start<TModel extends { hover?: string }>(
         canvas : HTMLCanvasElement, 
-        rootComponent : Component<TModel, TModel>) {
+        rootComponent : Component<TModel, TModel>) : void {
 
         var engine = new BABYLON.Engine(canvas, true);
         var scene = new BABYLON.Scene(engine);
@@ -1244,7 +1244,7 @@ module Rainbow.Runtime {
 
         // UNDONE: need to do mouse/etc for x-browser
         //
-        function updateHover(evt) {
+        function updateHover(evt) : void {
             var pickResult = scene.pick(evt.offsetX, evt.offsetY, (mesh) => {
                 return mesh.name.indexOf("ground") == -1;
             });

@@ -135,6 +135,10 @@ module Rainbow {
         mass?: number;
         friction?: number;
         restitution?: number;
+        temp_goalScaling?: Vector3;
+        temp_scalingVelocity?: number;
+        temp_goalRotation?: Vector3;
+        temp_rotationVelocity?: number;
     }
     export interface Ground extends Geometry {
         width: number;
@@ -677,16 +681,21 @@ module Rainbow.Runtime {
                 break;
         }
         
-        var maxDistancePerFrame = item.temp_velocity || .1;
-
         var goal = new BABYLON.Vector3(item.temp_goalPosition.x, item.temp_goalPosition.y, item.temp_goalPosition.z).add(offset);
-        var delta = goal.subtract(basePosition);
+        r.position = calcVector3AnimationFrame(basePosition, goal, item.temp_velocity);
+    }    
+
+    function calcVector3AnimationFrame(current : BABYLON.Vector3, goal : BABYLON.Vector3, maxDelta? : number) : BABYLON.Vector3 {
+        maxDelta = maxDelta || .1;
+
+        var delta = goal.subtract(current);
         var length = delta.length();
         var scale = 1;   
-        if (length > maxDistancePerFrame) { scale = maxDistancePerFrame/length; }
+        if (length > maxDelta) { scale = maxDelta/length; }
         var maxWithVelocity = delta.scale(scale);
-        r.position = r.position.add(maxWithVelocity);
-    }    
+        return current.add(maxWithVelocity);
+    }
+
     function updateGeometryProps(
         item: R.Geometry, 
         includeExpensive: boolean, 
@@ -695,14 +704,30 @@ module Rainbow.Runtime {
         r : BABYLON.AbstractMesh) : void {
             
         if (item.scaling) {
-            r.scaling.x = item.scaling.x;
-            r.scaling.y = item.scaling.y;
-            r.scaling.z = item.scaling.z;
+            if (forcePositionOnPhysics || !item.temp_goalScaling) {
+                r.scaling.x = item.scaling.x;
+                r.scaling.y = item.scaling.y;
+                r.scaling.z = item.scaling.z;
+            }
+            else {
+                r.scaling = calcVector3AnimationFrame(
+                    r.scaling, 
+                    new BABYLON.Vector3(item.temp_goalScaling.x, item.temp_goalScaling.y, item.temp_goalScaling.z), 
+                    item.temp_scalingVelocity);
+            }
         }
         if (item.rotation) {
-            r.rotation.x = item.rotation.x;
-            r.rotation.y = item.rotation.y;
-            r.rotation.z = item.rotation.z;
+            if (forcePositionOnPhysics || !item.temp_goalRotation) {
+                r.rotation.x = item.rotation.x;
+                r.rotation.y = item.rotation.y;
+                r.rotation.z = item.rotation.z;
+            }
+            else {
+                r.rotation = calcVector3AnimationFrame(
+                    r.rotation, 
+                    new BABYLON.Vector3(item.temp_goalRotation.x, item.temp_goalRotation.y, item.temp_goalRotation.z), 
+                    item.temp_rotationVelocity);
+            }
         }
         if (item.temp_goalPosition) {
             if (forcePositionOnPhysics) {

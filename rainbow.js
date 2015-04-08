@@ -377,8 +377,8 @@ var Rainbow;
                     }
                     break;
             }
-            var goal = new BABYLON.Vector3(item.temp_goalPosition.x, item.temp_goalPosition.y, item.temp_goalPosition.z).add(offset);
-            r.position = calcVector3AnimationFrame(basePosition, goal, item.temp_velocity);
+            var goal = new BABYLON.Vector3(item.animation.position.x, item.animation.position.y, item.animation.position.z).add(offset);
+            r.position = calcVector3AnimationFrame(basePosition, goal, item.animation.velocity);
         }
         function calcVector3AnimationFrame(current, goal, maxDelta) {
             maxDelta = maxDelta || .1;
@@ -393,26 +393,26 @@ var Rainbow;
         }
         function updateGeometryProps(item, includeExpensive, forcePositionOnPhysics, realObjects, r) {
             if (item.scaling) {
-                if (forcePositionOnPhysics || !item.temp_goalScaling) {
+                if (forcePositionOnPhysics || !item.animation || !item.animation.scaling) {
                     r.scaling.x = item.scaling.x;
                     r.scaling.y = item.scaling.y;
                     r.scaling.z = item.scaling.z;
                 }
                 else {
-                    r.scaling = calcVector3AnimationFrame(r.scaling, new BABYLON.Vector3(item.temp_goalScaling.x, item.temp_goalScaling.y, item.temp_goalScaling.z), item.temp_scalingVelocity);
+                    r.scaling = calcVector3AnimationFrame(r.scaling, new BABYLON.Vector3(item.animation.scaling.x, item.animation.scaling.y, item.animation.scaling.z), item.animation.scalingVelocity);
                 }
             }
             if (item.rotation) {
-                if (forcePositionOnPhysics || !item.temp_goalRotation) {
+                if (forcePositionOnPhysics || !item.animation || !item.animation.rotation) {
                     r.rotation.x = item.rotation.x;
                     r.rotation.y = item.rotation.y;
                     r.rotation.z = item.rotation.z;
                 }
                 else {
-                    r.rotation = calcVector3AnimationFrame(r.rotation, new BABYLON.Vector3(item.temp_goalRotation.x, item.temp_goalRotation.y, item.temp_goalRotation.z), item.temp_rotationVelocity);
+                    r.rotation = calcVector3AnimationFrame(r.rotation, new BABYLON.Vector3(item.animation.rotation.x, item.animation.rotation.y, item.animation.rotation.z), item.animation.rotationVelocity);
                 }
             }
-            if (item.temp_goalPosition) {
+            if (item.animation && item.animation.position) {
                 if (forcePositionOnPhysics) {
                     updatePosition(item, r, realObjects);
                 }

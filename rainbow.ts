@@ -121,13 +121,22 @@ module Rainbow {
         reflectionFresnelParameters?: FresnelParameters;
         emissiveFresnelParameters?: FresnelParameters;
     }
-    export interface HasPosition {
+    export interface AnimatePosition {
+        position: Vector3;
+        velocity: number;
+    }
+    export interface AnimateGeometry extends AnimatePosition {
+        scaling: Vector3;
+        scalingVelocity: number;
+        rotation: Vector3;
+        rotationVelocity: number;
+    }
+    export interface HasPosition<Animate> {
         position: Vector3;
         relativeTo: string;
-        temp_goalPosition?: Vector3;
-        temp_velocity?: number;
+        animation?: Animate;
     }
-    export interface Geometry extends HasPosition, GraphElement {
+    export interface Geometry extends HasPosition<AnimateGeometry>, GraphElement {
         material?: string;
         scaling?: Vector3;
         rotation?: Vector3;
@@ -135,10 +144,6 @@ module Rainbow {
         mass?: number;
         friction?: number;
         restitution?: number;
-        temp_goalScaling?: Vector3;
-        temp_scalingVelocity?: number;
-        temp_goalRotation?: Vector3;
-        temp_rotationVelocity?: number;
     }
     export interface Ground extends Geometry {
         width: number;
@@ -178,13 +183,13 @@ module Rainbow {
         intensity?: number;
         range?: number;
     }
-    export interface PointLight extends Light, HasPosition {
+    export interface PointLight extends Light, HasPosition<AnimatePosition> {
     }
     export interface HemisphericLight extends Light {
         direction: Vector3;
         groundColor?: Color3;
     }
-    export interface DirectionalLight extends Light, HasPosition {
+    export interface DirectionalLight extends Light, HasPosition<AnimatePosition> {
         direction: Vector3;
     }
 
@@ -194,7 +199,7 @@ module Rainbow {
         light: string;
         renderList: Rainbow.FlatSceneGraphToValue<string[]> | string[];
     }
-    export interface Camera extends GraphElement, HasPosition {
+    export interface Camera extends GraphElement, HasPosition<AnimatePosition> {
         type: string;
         action?: string;
         upVector?: Vector3;
@@ -630,7 +635,7 @@ module Rainbow.Runtime {
     // all of these update handlers are pretty bogus. Once DIFF becomes smart enough, we should clearly only 
     // update the changed values.
     // 
-    function updatePosition(item: R.HasPosition, r : BabylonHasPosition, realObjects : RealObjectsCache) : void {
+    function updatePosition(item: R.HasPosition<R.AnimatePosition>, r : BabylonHasPosition, realObjects : RealObjectsCache) : void {
         // eventually "$origin" shouldn't be supported except for surface reconstruction
         //
         var relativeTo = item.relativeTo || "$origin";
@@ -664,7 +669,7 @@ module Rainbow.Runtime {
                 break;
         }
     }
-    function animatePosition(item: R.HasPosition, r : BabylonHasPosition, realObjects : RealObjectsCache) : void {
+    function animatePosition(item: R.HasPosition<R.AnimatePosition>, r : BabylonHasPosition, realObjects : RealObjectsCache) : void {
         var relativeTo = item.relativeTo || "$origin";
         var basePosition = r.position;
         var offset = BABYLON.Vector3.Zero();
@@ -681,8 +686,8 @@ module Rainbow.Runtime {
                 break;
         }
         
-        var goal = new BABYLON.Vector3(item.temp_goalPosition.x, item.temp_goalPosition.y, item.temp_goalPosition.z).add(offset);
-        r.position = calcVector3AnimationFrame(basePosition, goal, item.temp_velocity);
+        var goal = new BABYLON.Vector3(item.animation.position.x, item.animation.position.y, item.animation.position.z).add(offset);
+        r.position = calcVector3AnimationFrame(basePosition, goal, item.animation.velocity);
     }    
 
     function calcVector3AnimationFrame(current : BABYLON.Vector3, goal : BABYLON.Vector3, maxDelta? : number) : BABYLON.Vector3 {
@@ -704,7 +709,7 @@ module Rainbow.Runtime {
         r : BABYLON.AbstractMesh) : void {
             
         if (item.scaling) {
-            if (forcePositionOnPhysics || !item.temp_goalScaling) {
+            if (forcePositionOnPhysics || !item.animation || !item.animation.scaling) {
                 r.scaling.x = item.scaling.x;
                 r.scaling.y = item.scaling.y;
                 r.scaling.z = item.scaling.z;
@@ -712,12 +717,12 @@ module Rainbow.Runtime {
             else {
                 r.scaling = calcVector3AnimationFrame(
                     r.scaling, 
-                    new BABYLON.Vector3(item.temp_goalScaling.x, item.temp_goalScaling.y, item.temp_goalScaling.z), 
-                    item.temp_scalingVelocity);
+                    new BABYLON.Vector3(item.animation.scaling.x, item.animation.scaling.y, item.animation.scaling.z), 
+                    item.animation.scalingVelocity);
             }
         }
         if (item.rotation) {
-            if (forcePositionOnPhysics || !item.temp_goalRotation) {
+            if (forcePositionOnPhysics || !item.animation || !item.animation.rotation) {
                 r.rotation.x = item.rotation.x;
                 r.rotation.y = item.rotation.y;
                 r.rotation.z = item.rotation.z;
@@ -725,11 +730,11 @@ module Rainbow.Runtime {
             else {
                 r.rotation = calcVector3AnimationFrame(
                     r.rotation, 
-                    new BABYLON.Vector3(item.temp_goalRotation.x, item.temp_goalRotation.y, item.temp_goalRotation.z), 
-                    item.temp_rotationVelocity);
+                    new BABYLON.Vector3(item.animation.rotation.x, item.animation.rotation.y, item.animation.rotation.z), 
+                    item.animation.rotationVelocity);
             }
         }
-        if (item.temp_goalPosition) {
+        if (item.animation && item.animation.position) {
             if (forcePositionOnPhysics) {
                 updatePosition(item, r, realObjects);
             }

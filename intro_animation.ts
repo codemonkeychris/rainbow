@@ -33,16 +33,18 @@ module App {
 
                     // animation
                     //
-                    temp_goalRotation: { x:3, y:3, z:3},
-                    temp_rotationVelocity: .05,
-                    temp_goalScaling: {x:3, y:3, z:3},
-                    temp_scalingVelocity: .05,
-                    temp_goalPosition: { 
-                        x: data.position.x + ((frameNumber/30)|0) % 10, 
-                        y: data.position.y + 4 + ((frameNumber/50)|0) % 3, 
-                        z: data.position.z + ((frameNumber/20)|0) % 10 
-                    },
-                    temp_velocity: .3
+                    animation: <R.AnimateGeometry>{
+                        rotation: { x: 3, y: 3, z: 3 },
+                        rotationVelocity: .05,
+                        scaling: { x: 3, y: 3, z: 3 },
+                        scalingVelocity: .05,
+                        position: {
+                            x: data.position.x + ((frameNumber / 30) | 0) % 10,
+                            y: data.position.y + 4 + ((frameNumber / 50) | 0) % 3,
+                            z: data.position.z + ((frameNumber / 20) | 0) % 10
+                        },
+                        velocity: .3
+                    }
                 }
             ];
         }

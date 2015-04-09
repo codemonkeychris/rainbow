@@ -1,5 +1,5 @@
 # Rainbow
-An experiment in bringing together React style programming and 3D environments using BabylonJS.
+An experiment in bringing together React style programming and 3D environments using BabylonJS. [Demos](http://codemonkeychris.github.io/rainbow/) can be run in any browser.
 
 ## Basic model
 The basic design is much like [ReactJS](https://github.com/reactjs) (and should 

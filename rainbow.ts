@@ -136,7 +136,7 @@ module Rainbow {
     }
     export interface HasPosition<Animate> {
         position: Vector3;
-        relativeTo: string;
+        relativeTo: string | FlatSceneGraphToValue<string>;
         animation?: Animate;
     }
     export enum BillboardMode {
@@ -723,7 +723,7 @@ module Rainbow.Runtime {
                 r.position.z = item.position.z;
                 break;
             default:
-                var relative: BabylonHasPosition = <BabylonHasPosition>(<any>realObjects[relativeTo]);
+                var relative: BabylonHasPosition = <BabylonHasPosition>(<any>realObjects[<string>relativeTo]);
                 if (relative) {
                     // UNDONE: right now this is relative to the center of the object, we really
                     // need proper pins on any mesh point... also, consider rotation, scale, etc... 
@@ -750,7 +750,7 @@ module Rainbow.Runtime {
             case "$camera":
                 break;
             default:
-                var relative = <BabylonHasPosition>(<any>realObjects[relativeTo]);
+                var relative = <BabylonHasPosition>(<any>realObjects[<string>relativeTo]);
                 if (relative) {
                     offset = relative.position;
                 }
@@ -1297,8 +1297,8 @@ module Rainbow.Runtime {
     // Poorly factored and horribly inneficient. This started as 20 lines, and kept growing. 
     // Desparately needs refactoring and some design work
     //
-    function applyActions(dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects) : R.FlatSceneGraph {
-        var result : R.FlatSceneGraph = [];
+    function applyActions(dom: R.FlatSceneGraph, scene: BABYLON.Scene, realObjects): R.FlatSceneGraph {
+        var result: R.FlatSceneGraph = [];
 
         var updateCount = 0;
 
@@ -1308,7 +1308,7 @@ module Rainbow.Runtime {
             // hack, hack, hack... 
             //
             if (updateCount > MAX_UPDATES) {
-                if (item.action == "update" || item.action == "delete" || item.action=="recreate") {
+                if (item.action == "update" || item.action == "delete" || item.action == "recreate") {
                     result.push(item);
                 }
                 continue;
@@ -1350,6 +1350,9 @@ module Rainbow.Runtime {
         return result;
     };
 
+    export var _testExport = {
+        diff: diff,
+    };
 
     // UNDONE: obviously "extends {hover:string}" is temporary... 
     export function start<TModel extends { hover?: string }>(

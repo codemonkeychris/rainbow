@@ -211,6 +211,6 @@ Velocity properties controls the maximum change per frame, and the property valu
 There is more, but at this point the hacking is much faster than the documenting... 
 
 ## Contributing
-Not yet supported, right now it's just me hacking
+Just starting to figure this out, see [contributing.md](contributing.md)
 
 

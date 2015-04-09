@@ -964,6 +964,9 @@ var Rainbow;
             return result;
         }
         ;
+        Runtime._testExport = {
+            diff: diff
+        };
         // UNDONE: obviously "extends {hover:string}" is temporary... 
         function start(canvas, rootComponent) {
             var engine = new BABYLON.Engine(canvas, true);

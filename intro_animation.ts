@@ -3,7 +3,7 @@
 
 ///<reference path='Babylon.js-2.0/References/poly2tri.d.ts' />
 ///<reference path='Babylon.js-2.0/References/waa.d.ts' />
-///<reference path='Babylon.js-2.0/babylon.2.0.d.ts' />
+///<reference path='Babylon.js-2.0/babylon.d.ts' />
 ///<reference path='rainbow.ts' />
 
 module App {

@@ -1401,9 +1401,14 @@ module Rainbow.Runtime {
     };
 
     // UNDONE: obviously "extends {hover:string}" is temporary... 
+    // UNDONE: trackHoverOnMove exists because scene.pick is very expensive when you have lots
+    // of objects on the screen. Since I'm playing with lots of stress tests (for fun), we need
+    // a better solution... for now, throw in a temporary check
+    //
     export function start<TModel extends { hover?: string }>(
         canvas : HTMLCanvasElement, 
-        rootComponent : Component<TModel, TModel>) : void {
+        rootComponent : Component<TModel, TModel>,
+        trackHoverOnMove?: boolean) : void {
 
         var engine = new BABYLON.Engine(canvas, true);
         var scene = new BABYLON.Scene(engine);
@@ -1414,7 +1419,10 @@ module Rainbow.Runtime {
 
         // UNDONE: need to do mouse/etc for x-browser
         //
+        var lockHoverElement = false;
         function updateHover(evt) : void {
+            if (lockHoverElement) { return; }
+
             var pickResult = scene.pick(evt.offsetX, evt.offsetY, (mesh) => {
                 return mesh.name.indexOf("ground") == -1;
             });
@@ -1430,9 +1438,16 @@ module Rainbow.Runtime {
             }            
         }
 
-        canvas.addEventListener("pointermove", updateHover);
-        
+        canvas.addEventListener("pointermove", (evt) => {
+            if (trackHoverOnMove) { updateHover(evt); }
+        });
+ 
+        canvas.addEventListener("pointerdown", (evt) => {
+            lockHoverElement = true;
+            updateHover(evt);
+        });
         canvas.addEventListener("pointerup", (evt) => {
+            lockHoverElement = false;
             updateHover(evt);
             if (model.hover && rootComponent.clicked) {
                 model = rootComponent.clicked(model);

@@ -23,7 +23,7 @@ var App;
                 { name: 'white', type: 'material', diffuseColor: { r: 1, g: 1, b: 1 } },
                 { name: 'red', type: 'material', diffuseColor: { r: 1, g: 0, b: 0 } },
                 R.World.createWalls('wall1', 15, 7, .5, data.position, data.relativeTo, 'white'),
-                range(Math.min(frameNumber / 20, 100)).map(function (v) { return {
+                range(Math.min(frameNumber / 10, 100)).map(function (v) { return {
                     type: 'sphere',
                     name: 'v' + v,
                     instanceName: 'v0',

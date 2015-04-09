@@ -35,7 +35,7 @@ module App {
                 <R.StandardMaterial>{ name: 'white', type: 'material', diffuseColor: { r:1, g:1, b:1 } },
                 <R.StandardMaterial>{ name: 'red', type: 'material', diffuseColor: { r:1, g:0, b:0 } },
                 R.World.createWalls('wall1', 15, 7, .5, data.position, data.relativeTo, 'white'),
-                range(Math.min(frameNumber / 20, 100)).map(v => <R.Sphere>{ 
+                range(Math.min(frameNumber / 10, 100)).map(v => <R.Sphere>{ 
                     type: 'sphere', 
                     name:'v' + v, 
                     instanceName: 'v0',

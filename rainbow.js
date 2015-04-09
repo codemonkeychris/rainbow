@@ -1010,7 +1010,11 @@ var Rainbow;
             diff: diff
         };
         // UNDONE: obviously "extends {hover:string}" is temporary... 
-        function start(canvas, rootComponent) {
+        // UNDONE: trackHoverOnMove exists because scene.pick is very expensive when you have lots
+        // of objects on the screen. Since I'm playing with lots of stress tests (for fun), we need
+        // a better solution... for now, throw in a temporary check
+        //
+        function start(canvas, rootComponent, trackHoverOnMove) {
             var engine = new BABYLON.Engine(canvas, true);
             var scene = new BABYLON.Scene(engine);
             scene.enablePhysics(new BABYLON.Vector3(0, -10, 0), new BABYLON.OimoJSPlugin());
@@ -1019,7 +1023,11 @@ var Rainbow;
             var model = rootComponent.initialize ? rootComponent.initialize() : { hover: "" };
             // UNDONE: need to do mouse/etc for x-browser
             //
+            var lockHoverElement = false;
             function updateHover(evt) {
+                if (lockHoverElement) {
+                    return;
+                }
                 var pickResult = scene.pick(evt.offsetX, evt.offsetY, function (mesh) {
                     return mesh.name.indexOf("ground") == -1;
                 });
@@ -1034,8 +1042,17 @@ var Rainbow;
                     }
                 }
             }
-            canvas.addEventListener("pointermove", updateHover);
+            canvas.addEventListener("pointermove", function (evt) {
+                if (trackHoverOnMove) {
+                    updateHover(evt);
+                }
+            });
+            canvas.addEventListener("pointerdown", function (evt) {
+                lockHoverElement = true;
+                updateHover(evt);
+            });
             canvas.addEventListener("pointerup", function (evt) {
+                lockHoverElement = false;
                 updateHover(evt);
                 if (model.hover && rootComponent.clicked) {
                     model = rootComponent.clicked(model);

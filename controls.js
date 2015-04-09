@@ -145,6 +145,6 @@ var App;
                     model.values = model.values.map(function (x) { return Math.round(Math.random() * 11); });
                 }
             },
-        ]));
+        ]), true);
     }));
 })(App || (App = {}));

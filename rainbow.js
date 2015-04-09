@@ -536,7 +536,13 @@ var Rainbow;
             plane: {
                 create: function (rawItem, dom, scene, realObjects) {
                     var item = rawItem;
-                    var r = BABYLON.Mesh.CreatePlane(item.name, item.size, scene);
+                    var r;
+                    if (item.instanceName && item.instanceName !== item.name) {
+                        r = realObjects[item.name] = realObjects[item.instanceName].createInstance(item.name);
+                    }
+                    else {
+                        r = BABYLON.Mesh.CreatePlane(item.name, item.size, scene);
+                    }
                     realObjects[item.name] = r;
                     updateGeometryProps(item, true, true, realObjects, r);
                 },
@@ -547,7 +553,13 @@ var Rainbow;
             box: {
                 create: function (rawItem, dom, scene, realObjects) {
                     var item = rawItem;
-                    var r = BABYLON.Mesh.CreateBox(item.name, item.size, scene);
+                    var r;
+                    if (item.instanceName && item.instanceName !== item.name) {
+                        r = realObjects[item.name] = realObjects[item.instanceName].createInstance(item.name);
+                    }
+                    else {
+                        r = BABYLON.Mesh.CreateBox(item.name, item.size, scene);
+                    }
                     realObjects[item.name] = r;
                     updateGeometryProps(item, true, true, realObjects, r);
                     updatePhysicsProps(item, r, BABYLON.PhysicsEngine.BoxImpostor);
@@ -560,7 +572,13 @@ var Rainbow;
             cylinder: {
                 create: function (rawItem, dom, scene, realObjects) {
                     var item = rawItem;
-                    var r = realObjects[item.name] = BABYLON.Mesh.CreateCylinder(item.name, item.height, item.diameterTop, item.diameterBottom, item.tessellation || 20, item.subdivisions, scene);
+                    var r;
+                    if (item.instanceName && item.instanceName !== item.name) {
+                        r = realObjects[item.name] = realObjects[item.instanceName].createInstance(item.name);
+                    }
+                    else {
+                        r = realObjects[item.name] = BABYLON.Mesh.CreateCylinder(item.name, item.height, item.diameterTop, item.diameterBottom, item.tessellation || 20, item.subdivisions, scene);
+                    }
                     updateGeometryProps(item, true, true, realObjects, r);
                     updatePhysicsProps(item, r, BABYLON.PhysicsEngine.CylinderImpostor);
                 },
@@ -597,7 +615,13 @@ var Rainbow;
             torus: {
                 create: function (rawItem, dom, scene, realObjects) {
                     var item = rawItem;
-                    var r = realObjects[item.name] = BABYLON.Mesh.CreateTorus(item.name, item.diameter, item.thickness, item.tessellation || 20, scene);
+                    var r;
+                    if (item.instanceName && item.instanceName !== item.name) {
+                        r = realObjects[item.name] = realObjects[item.instanceName].createInstance(item.name);
+                    }
+                    else {
+                        r = realObjects[item.name] = BABYLON.Mesh.CreateTorus(item.name, item.diameter, item.thickness, item.tessellation || 20, scene);
+                    }
                     updateGeometryProps(item, true, true, realObjects, r);
                     updatePhysicsProps(item, r, BABYLON.PhysicsEngine.MeshImpostor);
                 },
@@ -608,7 +632,13 @@ var Rainbow;
             sphere: {
                 create: function (rawItem, dom, scene, realObjects) {
                     var item = rawItem;
-                    var r = realObjects[item.name] = BABYLON.Mesh.CreateSphere(item.name, item.segments || 16, item.diameter, scene, true);
+                    var r;
+                    if (item.instanceName && item.instanceName !== item.name) {
+                        r = realObjects[item.name] = realObjects[item.instanceName].createInstance(item.name);
+                    }
+                    else {
+                        r = realObjects[item.name] = BABYLON.Mesh.CreateSphere(item.name, item.segments || 16, item.diameter, scene, true);
+                    }
                     updateGeometryProps(item, true, true, realObjects, r);
                     updatePhysicsProps(item, r, BABYLON.PhysicsEngine.SphereImpostor);
                 },
@@ -620,7 +650,13 @@ var Rainbow;
             ground: {
                 create: function (rawItem, dom, scene, realObjects) {
                     var item = rawItem;
-                    var r = realObjects[item.name] = BABYLON.Mesh.CreateGround(item.name, item.width, item.depth, item.segments, scene);
+                    var r;
+                    if (item.instanceName && item.instanceName !== item.name) {
+                        r = realObjects[item.name] = realObjects[item.instanceName].createInstance(item.name);
+                    }
+                    else {
+                        r = realObjects[item.name] = BABYLON.Mesh.CreateGround(item.name, item.width, item.depth, item.segments, scene);
+                    }
                     updateGeometryProps(item, true, true, realObjects, r);
                     updatePhysicsProps(item, r, BABYLON.PhysicsEngine.MeshImpostor);
                 },
@@ -631,7 +667,13 @@ var Rainbow;
             groundFromHeightMap: {
                 create: function (rawItem, dom, scene, realObjects) {
                     var item = rawItem;
-                    var r = realObjects[item.name] = BABYLON.Mesh.CreateGroundFromHeightMap(item.name, item.url, item.width, item.depth, item.segments, item.minHeight, item.maxHeight, scene, false);
+                    var r;
+                    if (item.instanceName && item.instanceName !== item.name) {
+                        r = realObjects[item.name] = realObjects[item.instanceName].createInstance(item.name);
+                    }
+                    else {
+                        r = realObjects[item.name] = BABYLON.Mesh.CreateGroundFromHeightMap(item.name, item.url, item.width, item.depth, item.segments, item.minHeight, item.maxHeight, scene, false);
+                    }
                     updateGeometryProps(item, true, true, realObjects, r);
                     updatePhysicsProps(item, r, BABYLON.PhysicsEngine.MeshImpostor);
                 },

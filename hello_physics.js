@@ -23,10 +23,11 @@ var App;
                 { name: 'white', type: 'material', diffuseColor: { r: 1, g: 1, b: 1 } },
                 { name: 'red', type: 'material', diffuseColor: { r: 1, g: 0, b: 0 } },
                 R.World.createWalls('wall1', 15, 7, .5, data.position, data.relativeTo, 'white'),
-                range(Math.min(frameNumber / 20, 40)).map(function (v) { return {
+                range(Math.min(frameNumber / 20, 100)).map(function (v) { return {
                     type: 'sphere',
                     name: 'v' + v,
-                    segments: 6,
+                    instanceName: 'v0',
+                    segments: 8,
                     diameter: .4,
                     position: {
                         x: data.position.x + Math.random(),
@@ -42,7 +43,8 @@ var App;
                 range(pyramidSize).map(function (level) { return range((pyramidSize - 1) - level).map(function (x) { return range((pyramidSize - 1) - level).map(function (y) { return {
                     type: 'sphere',
                     name: 'l' + level + 'x' + x + 'y' + y,
-                    segments: 6,
+                    instanceName: 'l0x0y0',
+                    segments: 20,
                     diameter: itemSize,
                     position: {
                         x: data.position.x + x * .6 + itemSize * level / 2 - pyramidSize / 2,

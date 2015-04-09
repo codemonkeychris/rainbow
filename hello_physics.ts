@@ -35,10 +35,11 @@ module App {
                 <R.StandardMaterial>{ name: 'white', type: 'material', diffuseColor: { r:1, g:1, b:1 } },
                 <R.StandardMaterial>{ name: 'red', type: 'material', diffuseColor: { r:1, g:0, b:0 } },
                 R.World.createWalls('wall1', 15, 7, .5, data.position, data.relativeTo, 'white'),
-                range(Math.min(frameNumber / 20, 40)).map(v => <R.Sphere>{ 
+                range(Math.min(frameNumber / 20, 100)).map(v => <R.Sphere>{ 
                     type: 'sphere', 
                     name:'v' + v, 
-                    segments: 6,
+                    instanceName: 'v0',
+                    segments: 8,
                     diameter:.4, 
                     position: { 
                         x: data.position.x + Math.random(), 
@@ -56,7 +57,8 @@ module App {
                         range((pyramidSize-1)-level).map(y=><R.Sphere>{ 
                             type: 'sphere', 
                             name:'l' + level + 'x' + x + 'y' + y, 
-                            segments: 6,
+                            instanceName:'l0x0y0', 
+                            segments: 20,
                             diameter:itemSize, 
                             position: { 
                                 x: data.position.x + x*.6 + itemSize*level/2 - pyramidSize/2, 

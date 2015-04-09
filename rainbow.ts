@@ -147,6 +147,7 @@ module Rainbow {
         All
     }
     export interface Geometry extends HasPosition<AnimateGeometry>, GraphElement {
+        instanceName?: string;
         material?: string;
         scaling?: Vector3;
         rotation?: Vector3;
@@ -865,7 +866,14 @@ module Rainbow.Runtime {
         plane: {
             create: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <R.Plane>rawItem;
-                var r = BABYLON.Mesh.CreatePlane(item.name, item.size, scene);
+                var r: BABYLON.AbstractMesh;
+
+                if (item.instanceName && item.instanceName !== item.name) {
+                    r = realObjects[item.name] = (<BABYLON.Mesh>realObjects[item.instanceName]).createInstance(item.name);
+                }
+                else {
+                    r = BABYLON.Mesh.CreatePlane(item.name, item.size, scene);
+                }
                 realObjects[item.name] = r;
                 updateGeometryProps(item, true, true, realObjects, r);
             },
@@ -877,8 +885,14 @@ module Rainbow.Runtime {
         box: {
             create: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <R.Box>rawItem;
+                var r: BABYLON.AbstractMesh;
 
-                var r = BABYLON.Mesh.CreateBox(item.name, item.size, scene);
+                if (item.instanceName && item.instanceName !== item.name) {
+                    r = realObjects[item.name] = (<BABYLON.Mesh>realObjects[item.instanceName]).createInstance(item.name);
+                }
+                else {
+                    r = BABYLON.Mesh.CreateBox(item.name, item.size, scene);
+                }
                 realObjects[item.name] = r;
                 updateGeometryProps(item, true, true, realObjects, r);
                 updatePhysicsProps(item, r, BABYLON.PhysicsEngine.BoxImpostor);
@@ -891,8 +905,14 @@ module Rainbow.Runtime {
         cylinder: {
             create: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <R.Cylinder>rawItem;
+                var r: BABYLON.AbstractMesh;
 
-                var r = realObjects[item.name] = BABYLON.Mesh.CreateCylinder(item.name, item.height, item.diameterTop, item.diameterBottom, item.tessellation || 20, item.subdivisions, scene);
+                if (item.instanceName && item.instanceName !== item.name) {
+                    r = realObjects[item.name] = (<BABYLON.Mesh>realObjects[item.instanceName]).createInstance(item.name);
+                }
+                else {
+                    r = realObjects[item.name] = BABYLON.Mesh.CreateCylinder(item.name, item.height, item.diameterTop, item.diameterBottom, item.tessellation || 20, item.subdivisions, scene);
+                }
                 updateGeometryProps(item, true, true, realObjects, r);
                 updatePhysicsProps(item, r, BABYLON.PhysicsEngine.CylinderImpostor);
             },
@@ -935,8 +955,14 @@ module Rainbow.Runtime {
         torus: {
             create: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <R.Torus>rawItem;
+                var r: BABYLON.AbstractMesh;
 
-                var r = realObjects[item.name] = BABYLON.Mesh.CreateTorus(item.name, item.diameter, item.thickness, item.tessellation || 20, scene);
+                if (item.instanceName && item.instanceName !== item.name) {
+                    r = realObjects[item.name] = (<BABYLON.Mesh>realObjects[item.instanceName]).createInstance(item.name);
+                }
+                else {
+                    r = realObjects[item.name] = BABYLON.Mesh.CreateTorus(item.name, item.diameter, item.thickness, item.tessellation || 20, scene);
+                }
                 updateGeometryProps(item, true, true, realObjects, r);
                 updatePhysicsProps(item, r, BABYLON.PhysicsEngine.MeshImpostor);
             },
@@ -948,8 +974,14 @@ module Rainbow.Runtime {
         sphere: {
             create: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <R.Sphere>rawItem;
+                var r: BABYLON.AbstractMesh;
 
-                var r = realObjects[item.name] = BABYLON.Mesh.CreateSphere(item.name, item.segments || 16, item.diameter, scene, true);
+                if (item.instanceName && item.instanceName !== item.name) {
+                    r = realObjects[item.name] = (<BABYLON.Mesh>realObjects[item.instanceName]).createInstance(item.name);
+                }
+                else {
+                    r = realObjects[item.name] = BABYLON.Mesh.CreateSphere(item.name, item.segments || 16, item.diameter, scene, true);
+                }
                 updateGeometryProps(item, true, true, realObjects, r);
                 updatePhysicsProps(item, r, BABYLON.PhysicsEngine.SphereImpostor);
             },
@@ -963,7 +995,14 @@ module Rainbow.Runtime {
             create: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <R.Ground>rawItem;
 
-                var r = realObjects[item.name] = BABYLON.Mesh.CreateGround(item.name, item.width, item.depth, item.segments, scene);
+                var r: BABYLON.AbstractMesh;
+
+                if (item.instanceName && item.instanceName !== item.name) {
+                    r = realObjects[item.name] = (<BABYLON.Mesh>realObjects[item.instanceName]).createInstance(item.name);
+                }
+                else {
+                    r = realObjects[item.name] = BABYLON.Mesh.CreateGround(item.name, item.width, item.depth, item.segments, scene);
+                }
                 updateGeometryProps(item, true, true, realObjects, r);
                 updatePhysicsProps(item, r, BABYLON.PhysicsEngine.MeshImpostor);
             },
@@ -976,16 +1015,23 @@ module Rainbow.Runtime {
             create: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <R.GroundFromHeightMap>rawItem;
 
-                var r = realObjects[item.name] =
-                    BABYLON.Mesh.CreateGroundFromHeightMap(item.name,
-                        item.url,
-                        item.width,
-                        item.depth,
-                        item.segments,
-                        item.minHeight,
-                        item.maxHeight,
-                        scene,
-                        false);
+                var r: BABYLON.AbstractMesh;
+
+                if (item.instanceName && item.instanceName !== item.name) {
+                    r = realObjects[item.name] = (<BABYLON.Mesh>realObjects[item.instanceName]).createInstance(item.name);
+                }
+                else {
+                    r = realObjects[item.name] =
+                        BABYLON.Mesh.CreateGroundFromHeightMap(item.name,
+                            item.url,
+                            item.width,
+                            item.depth,
+                            item.segments,
+                            item.minHeight,
+                            item.maxHeight,
+                            scene,
+                            false);
+                }
                 updateGeometryProps(item, true, true, realObjects, r);
                 updatePhysicsProps(item, r, BABYLON.PhysicsEngine.MeshImpostor);
             },

@@ -1,4 +1,5 @@
 /// <reference path="qunit-1.16.0.d.ts" />
+/// <reference path="../linqjs/linq.js.d.ts" />
 /// <reference path="../rainbow.ts" />
 
 module Tests.Diff {
@@ -166,6 +167,13 @@ module Tests.Diff {
         ], "diff should result in function resolution");
     });
 
+    QUnit.module("linqjs validation");
+
+    test("basic query and projection", function($) {
+        var result = Enumerable.from([1, 2, 3, 4, 5]).where(v=> v % 2 == 0).select(function(v) { return { x: v }; }).toArray();
+
+        $.deepEqual(result, [{ x: 2 }, { x: 4 }], "select should project the even items to the new data structure");
+    });
     
 }
 

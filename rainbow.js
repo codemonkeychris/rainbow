@@ -354,7 +354,7 @@ var Rainbow;
                             width: 256,
                             height: 60,
                             vScale: 1,
-                            renderCallback: 'function callback(texture) { \n' + '    texture.drawText("' + dataModel[0] + '", 5, 20, "bold 20px Segoe UI", "black", "#F8CA00"); \n' + '    texture.drawText("' + (dataModel[1] ? dataModel[1] : "") + '", 5, 40, "bold 16px Segoe UI", "black", null); \n' + '}; callback;'
+                            renderCallback: 'function callback(texture) { \n' + '    texture.drawText("' + dataModel[0] + '", 5, 20, "bold 15px Segoe UI", "black", "#F8CA00"); \n' + '    texture.drawText("' + (dataModel[1] ? dataModel[1] : "") + '", 5, 40, "bold 12px Segoe UI", "black", null); \n' + '}; callback;'
                         }
                     };
                 }
@@ -533,6 +533,27 @@ var Rainbow;
             }
         }
         var handlers = {
+            line: {
+                create: function (rawItem, dom, scene, realObjects) {
+                    var item = rawItem;
+                    var r;
+                    if (item.instanceName && item.instanceName !== item.name) {
+                        r = realObjects[item.name] = realObjects[item.instanceName].createInstance(item.name);
+                    }
+                    else {
+                        var initialLine = BABYLON.Mesh.CreateLines(item.name, item.points.map(function (v) { return new BABYLON.Vector3(v.x, v.y, v.z); }), scene);
+                        r = initialLine;
+                        if (item.color) {
+                            initialLine.color = new BABYLON.Color3(item.color.r, item.color.g, item.color.b);
+                        }
+                    }
+                    realObjects[item.name] = r;
+                    updateGeometryProps(item, true, true, realObjects, r);
+                },
+                update: function (rawItem, dom, scene, realObjects) {
+                    updateGeometryProps(rawItem, true, false, realObjects, realObjects[rawItem.name]);
+                }
+            },
             plane: {
                 create: function (rawItem, dom, scene, realObjects) {
                     var item = rawItem;
@@ -681,6 +702,23 @@ var Rainbow;
                     updateGeometryProps(rawItem, false, false, realObjects, realObjects[rawItem.name]);
                 }
             },
+            extrudedShape: {
+                create: function (rawItem, dom, scene, realObjects) {
+                    var item = rawItem;
+                    var r;
+                    if (item.instanceName && item.instanceName !== item.name) {
+                        r = realObjects[item.name] = realObjects[item.instanceName].createInstance(item.name);
+                    }
+                    else {
+                        r = realObjects[item.name] = BABYLON.Mesh.ExtrudeShape(item.name, item.shape.map(function (v) { return new BABYLON.Vector3(v.x, v.y, v.z); }), item.path.map(function (v) { return new BABYLON.Vector3(v.x, v.y, v.z); }), item.scale, 0, scene, false);
+                    }
+                    updateGeometryProps(item, true, true, realObjects, r);
+                    updatePhysicsProps(item, r, BABYLON.PhysicsEngine.MeshImpostor);
+                },
+                update: function (rawItem, dom, scene, realObjects) {
+                    updateGeometryProps(rawItem, false, false, realObjects, realObjects[rawItem.name]);
+                }
+            },
             hemisphericLight: {
                 create: function (rawItem, dom, scene, realObjects) {
                     var item = rawItem;
@@ -773,6 +811,7 @@ var Rainbow;
                         r.diffuseColor = new BABYLON.Color3(item.diffuseColor.r, item.diffuseColor.g, item.diffuseColor.b);
                     }
                     r.wireframe = item.wireframe;
+                    r.backFaceCulling = !!item.backFaceCulling;
                     if (item.diffuseTexture) {
                         var sharedTexture;
                         var dynamicTexture;

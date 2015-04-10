@@ -165,6 +165,10 @@ module Rainbow {
     export interface Plane extends Geometry {
         size: number;
     }
+    export interface Line extends Geometry {
+        color: Color3;
+        points: Vector3[];
+    }
     export interface Box extends Geometry {
         size: number;
     }
@@ -183,6 +187,12 @@ module Rainbow {
     export interface Sphere extends Geometry {
         segments: number;
         diameter: number;
+    }
+    export interface ExtrudedShape extends Geometry {
+        shape: Vector3[];
+        path: Vector3[];
+        scale: number;
+        sideOrientation?: number;
     }
     export interface GroundFromHeightMap extends Ground {
         minHeight: number;
@@ -630,8 +640,8 @@ module Rainbow.Controls {
                         vScale: 1,
                         renderCallback:
                         'function callback(texture) { \n' +
-                        '    texture.drawText("' + dataModel[0] + '", 5, 20, "bold 20px Segoe UI", "black", "#F8CA00"); \n' +
-                        '    texture.drawText("' + (dataModel[1] ? dataModel[1] : "") + '", 5, 40, "bold 16px Segoe UI", "black", null); \n' +
+                        '    texture.drawText("' + dataModel[0] + '", 5, 20, "bold 15px Segoe UI", "black", "#F8CA00"); \n' +
+                        '    texture.drawText("' + (dataModel[1] ? dataModel[1] : "") + '", 5, 40, "bold 12px Segoe UI", "black", null); \n' +
                         '}; callback;'
                     }
                 };
@@ -863,6 +873,29 @@ module Rainbow.Runtime {
     }
 
     var handlers: HandlerBlock = {
+        line: {
+            create: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
+                var item = <R.Line>rawItem;
+                var r: BABYLON.AbstractMesh;
+
+                if (item.instanceName && item.instanceName !== item.name) {
+                    r = realObjects[item.name] = (<BABYLON.LinesMesh>realObjects[item.instanceName]).createInstance(item.name);
+                }
+                else {
+                    var initialLine = BABYLON.Mesh.CreateLines(item.name, item.points.map(v=>new BABYLON.Vector3(v.x, v.y, v.z)), scene);
+                    r = initialLine;
+                    if (item.color) {
+                        initialLine.color = new BABYLON.Color3(item.color.r, item.color.g, item.color.b);
+                    }
+                }
+                realObjects[item.name] = r;
+                updateGeometryProps(item, true, true, realObjects, r);
+            },
+            update: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
+                updateGeometryProps(<R.Line>rawItem, true, false, realObjects, <BABYLON.AbstractMesh>realObjects[rawItem.name]);
+            }
+            // UNDONE: diff for mesh recreate
+        },
         plane: {
             create: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <R.Plane>rawItem;
@@ -1040,6 +1073,32 @@ module Rainbow.Runtime {
             }
             // UNDONE: diff for mesh recreate
         },
+        extrudedShape: {
+            create: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
+                var item = <R.ExtrudedShape>rawItem;
+
+                var r: BABYLON.AbstractMesh;
+
+                if (item.instanceName && item.instanceName !== item.name) {
+                    r = realObjects[item.name] = (<BABYLON.Mesh>realObjects[item.instanceName]).createInstance(item.name);
+                }
+                else {
+                    r = realObjects[item.name] =
+                        BABYLON.Mesh.ExtrudeShape(item.name,
+                            item.shape.map(v=>new BABYLON.Vector3(v.x, v.y, v.z)),
+                            item.path.map(v=>new BABYLON.Vector3(v.x, v.y, v.z)), 
+                            item.scale, 
+                            /* rotation */0, 
+                            scene,
+                            false);
+                }
+                updateGeometryProps(item, true, true, realObjects, r);
+                updatePhysicsProps(item, r, BABYLON.PhysicsEngine.MeshImpostor);
+            },
+            update: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
+                updateGeometryProps(<R.GroundFromHeightMap>rawItem, false, false, realObjects, <BABYLON.AbstractMesh>realObjects[rawItem.name]);
+            }
+        },
         hemisphericLight: {
             create: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <R.HemisphericLight>rawItem;
@@ -1143,6 +1202,7 @@ module Rainbow.Runtime {
                     r.diffuseColor = new BABYLON.Color3(item.diffuseColor.r, item.diffuseColor.g, item.diffuseColor.b);
                 }
                 r.wireframe = item.wireframe;
+                r.backFaceCulling = !!item.backFaceCulling;
                 if (item.diffuseTexture) {
                     var sharedTexture: BABYLON.Texture;
                     var dynamicTexture: BABYLON.DynamicTexture;

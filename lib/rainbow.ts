@@ -1,9 +1,9 @@
 // Copyright (c) Microsoft Corporation.  All Rights Reserved. Licensed under the MIT License. See License.txt in the project root 
 //
 
-///<reference path='Babylon.js-2.0/References/poly2tri.d.ts' />
-///<reference path='Babylon.js-2.0/References/waa.d.ts' />
-///<reference path='Babylon.js-2.0/babylon.d.ts' />
+///<reference path='../Babylon.js-2.0/References/poly2tri.d.ts' />
+///<reference path='../Babylon.js-2.0/References/waa.d.ts' />
+///<reference path='../Babylon.js-2.0/babylon.d.ts' />
 
 module Rainbow {
     // UNDONE action on objects is a hack for DIFF, should rethink that design
@@ -156,6 +156,10 @@ module Rainbow {
         friction?: number;
         restitution?: number;
         billboardMode?: BillboardMode;
+    }
+    export interface LoadMesh extends Geometry {
+        roolUrl: string;
+        sceneFileName: string;
     }
     export interface Ground extends Geometry {
         width: number;
@@ -1099,6 +1103,36 @@ module Rainbow.Runtime {
                 updateGeometryProps(<R.GroundFromHeightMap>rawItem, false, false, realObjects, <BABYLON.AbstractMesh>realObjects[rawItem.name]);
             }
         },
+        loadMesh: {
+            create: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
+                var item = <R.LoadMesh>rawItem;
+
+                var r: BABYLON.AbstractMesh;
+
+                if (item.instanceName && item.instanceName !== item.name) {
+                    r = realObjects[item.name] = (<BABYLON.Mesh>realObjects[item.instanceName]).createInstance(item.name);
+                }
+                else {
+                    // UNDONE: need to deal with all objects created by this scene
+                    //
+                    BABYLON.SceneLoader.ImportMesh("",
+                        item.roolUrl,
+                        item.sceneFileName,
+                        scene,
+                        function(meshes: BABYLON.AbstractMesh[], particleSystems: BABYLON.ParticleSystem[], skeletons: BABYLON.Skeleton[]) {
+                            r = realObjects[item.name] = meshes[0];
+                            updateGeometryProps(item, true, true, realObjects, r);
+                            updatePhysicsProps(item, r, BABYLON.PhysicsEngine.MeshImpostor);
+                        });
+                }
+            },
+            update: function (rawItem: R.GraphElement, dom: R.FlatSceneGraph, scene: BABYLON.Scene, realObjects: RealObjectsCache) {
+                var mesh = <BABYLON.AbstractMesh>realObjects[rawItem.name];
+                if (mesh) {
+                    updateGeometryProps(<R.GroundFromHeightMap>rawItem, false, false, realObjects, <BABYLON.AbstractMesh>realObjects[rawItem.name]);
+                }
+            }
+        },        
         hemisphericLight: {
             create: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 var item = <R.HemisphericLight>rawItem;

@@ -1,10 +1,10 @@
 // Copyright (c) Microsoft Corporation.  All Rights Reserved. Licensed under the MIT License. See License.txt in the project root 
 //
 
-///<reference path='Babylon.js-2.0/References/poly2tri.d.ts' />
-///<reference path='Babylon.js-2.0/References/waa.d.ts' />
-///<reference path='Babylon.js-2.0/babylon.d.ts' />
-///<reference path='rainbow.ts' />
+///<reference path='../Babylon.js-2.0/References/poly2tri.d.ts' />
+///<reference path='../Babylon.js-2.0/References/waa.d.ts' />
+///<reference path='../Babylon.js-2.0/babylon.d.ts' />
+///<reference path='../lib/rainbow.ts' />
 
 module App.Controls {
     import R=Rainbow;
@@ -150,7 +150,7 @@ module App {
         return <R.SceneGraph>[
             // since this is a web demo, we cache all 12 images in textures to avoid re-downloading
             //
-            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((value) => holo_diffuse('image(' + value + ')', 'images/' + value + '.jpg')),
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((value) => holo_diffuse('image(' + value + ')', '../images/' + value + '.jpg')),
             listView1.render(time, model.listView1, model.values),
             sticky1.render(time, model.sticky1, ["ListView Demonstration", "Scrolling lots of pics!"])
         ];

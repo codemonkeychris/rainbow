@@ -28,6 +28,8 @@ module App {
     var pyramidSize = 6;
     var itemSize = .6;
 
+    // ugh, this only works from web hosted files :(
+    //
     var root = {
         render: function (frameNumber: number, model: Model, data: Model): R.SceneGraph {
             return [
@@ -36,7 +38,8 @@ module App {
                     type:'loadMesh', 
                     roolUrl:"../demos/", 
                     sceneFileName:"skull.babylon", 
-                    position: model.position, 
+                    scaling: {x:.05,y:.05,z:.05},
+                    position: {x:0, y:1.5, z:0}, 
                     relativeTo: model.relativeTo 
                 }
             ];

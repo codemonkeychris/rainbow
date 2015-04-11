@@ -1,9 +1,9 @@
 // Copyright (c) Microsoft Corporation.  All Rights Reserved. Licensed under the MIT License. See License.txt in the project root 
 //
 
-///<reference path='Babylon.js-2.0/References/poly2tri.d.ts' />
-///<reference path='Babylon.js-2.0/References/waa.d.ts' />
-///<reference path='Babylon.js-2.0/babylon.d.ts' />
+///<reference path='../Babylon.js-2.0/References/poly2tri.d.ts' />
+///<reference path='../Babylon.js-2.0/References/waa.d.ts' />
+///<reference path='../Babylon.js-2.0/babylon.d.ts' />
 
 module Rainbow {
     // UNDONE action on objects is a hack for DIFF, should rethink that design

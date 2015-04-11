@@ -1,6 +1,6 @@
 /// <reference path="qunit-1.16.0.d.ts" />
 /// <reference path="../linqjs/linq.js.d.ts" />
-/// <reference path="../rainbow.ts" />
+/// <reference path="../lib/rainbow.ts" />
 var Tests;
 (function (Tests) {
     var Diff;

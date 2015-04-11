@@ -5,6 +5,49 @@
 ///<reference path='../Babylon.js-2.0/References/waa.d.ts' />
 ///<reference path='../Babylon.js-2.0/babylon.d.ts' />
 
+module Rainbow.RecordOperations {
+
+
+    // from: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/assign
+    // polyfill for ES6 assign method (fixed for TS warn/errors)
+    //
+
+    export function assign(target : any, ...sources:any[]) : any {
+        'use strict';
+        if (target === undefined || target === null) {
+            throw new TypeError('Cannot convert first argument to object');
+        }
+
+        var to = Object(target);
+        for (var i = 0; i < sources.length; i++) {
+            var nextSource = sources[i];
+            if (nextSource === undefined || nextSource === null) {
+                continue;
+            }
+
+            var keysArray = Object.keys(Object(nextSource));
+            for (var nextIndex = 0, len = keysArray.length; nextIndex < len; nextIndex++) {
+                var nextKey = keysArray[nextIndex];
+                var desc = Object.getOwnPropertyDescriptor(nextSource, nextKey);
+                if (desc !== undefined && desc.enumerable) {
+                    to[nextKey] = nextSource[nextKey];
+                }
+            }
+        }
+        return to;
+    };
+
+    var o = <any>Object;
+    if (!o.assign) {
+      Object.defineProperty(Object, 'assign', {
+        enumerable: false,
+        configurable: true,
+        writable: true,
+        value: assign
+      });
+    }
+}
+
 module Rainbow {
     // UNDONE action on objects is a hack for DIFF, should rethink that design
     //

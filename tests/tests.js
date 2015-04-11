@@ -6,6 +6,28 @@ var Tests;
     var Diff;
     (function (Diff) {
         var R = Rainbow;
+        var RO = Rainbow.RecordOperations;
+        QUnit.module('object.assign tests');
+        test('samples from MDN', function ($) {
+            // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/assign
+            var o1 = { a: 1 };
+            var o2 = { b: 2 };
+            var o3 = { c: 3 };
+            var obj = RO.assign(o1, o2, o3);
+            $.deepEqual(obj, { a: 1, b: 2, c: 3 }, "should be copied");
+            $.deepEqual(o1, { a: 1, b: 2, c: 3 }, "target object itself is changed");
+            var obj = Object.create({ foo: 1 }, {
+                bar: {
+                    value: 2 // bar is a non-enumerable property.
+                },
+                baz: {
+                    value: 3,
+                    enumerable: true // baz is an own enumerable property.
+                }
+            });
+            var copy = RO.assign({}, obj);
+            $.deepEqual(copy, { baz: 3 }, "Inherit properties and non-enumerable properties cannot be copied");
+        });
         QUnit.module("basic diff tests");
         test("null graph diff", function ($) {
             var initialGraph = [

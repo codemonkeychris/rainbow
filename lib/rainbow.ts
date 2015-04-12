@@ -6,13 +6,10 @@
 ///<reference path='../Babylon.js-2.0/babylon.d.ts' />
 
 module Rainbow.RecordOperations {
-
-
     // from: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/assign
     // polyfill for ES6 assign method (fixed for TS warn/errors)
     //
-
-    export function assign(target : any, ...sources:any[]) : any {
+    export function assign<T>(target : any, ...sources:any[]) : T {
         'use strict';
         if (target === undefined || target === null) {
             throw new TypeError('Cannot convert first argument to object');

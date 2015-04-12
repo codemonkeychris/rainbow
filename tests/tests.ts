@@ -8,13 +8,23 @@ module Tests.Diff {
 	
     QUnit.module('object.assign tests');
 
+    test('validate typed version', function($) {
+        var o1 = { a: 1 };
+        var o2 = { b: 2 };
+        var o3 = { c: 3 };
+
+        var typed = RO.assign<{ a: number; b: number;c: number;}>(o1, o2, o3);
+        $.deepEqual(typed, { a: 1, b: 2, c: 3 }, "should be copied");
+        $.deepEqual(o1, { a: 1, b: 2, c: 3 }, "target object itself is changed");
+    });
+
     test('samples from MDN', function($) {
         // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/assign
         var o1 = { a: 1 };
         var o2 = { b: 2 };
         var o3 = { c: 3 };
 
-        var obj = RO.assign(o1, o2, o3);
+        var obj = RO.assign<any>(o1, o2, o3);
         $.deepEqual(obj, { a: 1, b: 2, c: 3 }, "should be copied");
         $.deepEqual(o1, { a: 1, b: 2, c: 3 }, "target object itself is changed");
 

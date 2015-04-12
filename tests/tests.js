@@ -8,6 +8,14 @@ var Tests;
         var R = Rainbow;
         var RO = Rainbow.RecordOperations;
         QUnit.module('object.assign tests');
+        test('validate typed version', function ($) {
+            var o1 = { a: 1 };
+            var o2 = { b: 2 };
+            var o3 = { c: 3 };
+            var typed = RO.assign(o1, o2, o3);
+            $.deepEqual(typed, { a: 1, b: 2, c: 3 }, "should be copied");
+            $.deepEqual(o1, { a: 1, b: 2, c: 3 }, "target object itself is changed");
+        });
         test('samples from MDN', function ($) {
             // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/assign
             var o1 = { a: 1 };

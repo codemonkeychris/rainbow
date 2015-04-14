@@ -735,7 +735,7 @@ module Rainbow.Runtime {
     interface ApplyHandler {
         create: ApplyHandlerCallback;
         update: ApplyHandlerCallback;
-        diff?: (oldItem: R.GraphElement, newItem: R.GraphElement) => R.GraphElement;
+        determineAction?: (oldItem: R.GraphElement, newItem: R.GraphElement) => R.GraphElement;
     }
     interface HandlerBlock {
         [key: string]: ApplyHandler;
@@ -938,7 +938,7 @@ module Rainbow.Runtime {
             update: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 updateGeometryProps(<R.Line>rawItem, true, false, realObjects, <BABYLON.AbstractMesh>realObjects[rawItem.name]);
             }
-            // UNDONE: diff for mesh recreate
+            // UNDONE: determineAction for mesh recreate
         },
         plane: {
             create: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
@@ -957,7 +957,7 @@ module Rainbow.Runtime {
             update: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 updateGeometryProps(<R.Plane>rawItem, true, false, realObjects, <BABYLON.AbstractMesh>realObjects[rawItem.name]);
             }
-            // UNDONE: diff for mesh recreate
+            // UNDONE: determineAction for mesh recreate
         },
         box: {
             create: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
@@ -996,37 +996,26 @@ module Rainbow.Runtime {
             update: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 updateGeometryProps(<R.Cylinder>rawItem, true, false, realObjects, <BABYLON.AbstractMesh>realObjects[rawItem.name]);
             },
-            diff: function(newItem: R.GraphElement, oldItem: R.GraphElement): R.GraphElement {
+            determineAction: function(newItem: R.GraphElement, oldItem: R.GraphElement): R.GraphElement {
+                var n = <R.Cylinder>newItem;
+                var o = <R.Cylinder>oldItem;
 
-                if (!oldItem) {
-                    newItem.action = "create";
-                    return newItem;
-                }
-                else if (!newItem) {
-                    oldItem.action = "delete";
-                    return oldItem;
+                // anything used in mesh creation forces a regen of the mesh, this is why updating "scaling" is much
+                // better than adjusting "height"
+                //
+                if (n.height !== o.height 
+                    || n.diameterTop !== o.diameterTop 
+                    || n.diameterBottom !== o.diameterBottom
+                    || n.tessellation !== o.tessellation
+                    || n.subdivisions !== o.subdivisions) {
+                    newItem.action = "recreate";
                 }
                 else {
-                    var n = <R.Cylinder>newItem;
-                    var o = <R.Cylinder>oldItem;
-
-                    // anything used in mesh creation forces a regen of the mesh, this is why updating "scaling" is much
-                    // better than adjusting "height"
-                    //
-                    if (n.height !== o.height 
-                        || n.diameterTop !== o.diameterTop 
-                        || n.diameterBottom !== o.diameterBottom
-                        || n.tessellation !== o.tessellation
-                        || n.subdivisions !== o.subdivisions) {
-                        newItem.action = "recreate";
-                    }
-                    else {
-                        // preserve recreate from previous diffs
-                        newItem.action = o.action || "update";
-                    }
-                    // UNDONE: target diff
-                    return newItem;
+                    // preserve recreate from previous determineAction
+                    newItem.action = o.action || "update";
                 }
+                // UNDONE: target determineAction
+                return newItem;
             }
         },
         torus: {
@@ -1046,7 +1035,7 @@ module Rainbow.Runtime {
             update: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 updateGeometryProps(<R.Torus>rawItem, true, false, realObjects, <BABYLON.AbstractMesh>realObjects[rawItem.name]);
             }
-            // UNDONE: diff for mesh recreate
+            // UNDONE: determineAction for mesh recreate
         },
         sphere: {
             create: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
@@ -1066,7 +1055,7 @@ module Rainbow.Runtime {
                 var item = <R.Sphere>rawItem;
                 updateGeometryProps(item, true, false, realObjects, <BABYLON.AbstractMesh>realObjects[item.name]);
             }
-            // UNDONE: diff for mesh recreate
+            // UNDONE: determineAction for mesh recreate
         },
         ground: {
             create: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
@@ -1086,7 +1075,7 @@ module Rainbow.Runtime {
             update: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 updateGeometryProps(<R.Ground>rawItem, false, false, realObjects, <BABYLON.AbstractMesh>realObjects[rawItem.name]);
             }
-            // UNDONE: diff for mesh recreate
+            // UNDONE: determineAction for mesh recreate
         },
         groundFromHeightMap: {
             create: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
@@ -1115,7 +1104,7 @@ module Rainbow.Runtime {
             update: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
                 updateGeometryProps(<R.GroundFromHeightMap>rawItem, false, false, realObjects, <BABYLON.AbstractMesh>realObjects[rawItem.name]);
             }
-            // UNDONE: diff for mesh recreate
+            // UNDONE: determineAction for mesh recreate
         },
         extrudedShape: {
             create: function(rawItem: R.GraphElement, dom : R.FlatSceneGraph, scene : BABYLON.Scene, realObjects : RealObjectsCache) {
@@ -1332,26 +1321,15 @@ module Rainbow.Runtime {
                 r.setTarget(new BABYLON.Vector3(item.target.x, item.target.y, item.target.z));
                 updatePosition(item, r, realObjects);
             },
-            diff: function(newItem: R.GraphElement, oldItem: R.GraphElement): R.GraphElement {
+            determineAction: function(newItem: R.GraphElement, oldItem: R.GraphElement): R.GraphElement {
+                var n = <R.FreeCamera>newItem;
+                var o = <R.FreeCamera>oldItem;
 
-                if (!oldItem) {
-                    newItem.action = "create";
-                    return newItem;
+                if (n.position.x !== o.position.x || n.position.y !== o.position.y || n.position.z !== o.position.z) {
+                    newItem.action = "update";
                 }
-                else if (!newItem) {
-                    oldItem.action = "delete";
-                    return oldItem;
-                }
-                else {
-                    var n = <R.FreeCamera>newItem;
-                    var o = <R.FreeCamera>oldItem;
-
-                    if (n.position.x !== o.position.x || n.position.y !== o.position.y || n.position.z !== o.position.z) {
-                        newItem.action = "update";
-                    }
-                    // UNDONE: target diff
-                    return newItem;
-                }
+                // UNDONE: target determineAction
+                return newItem;
             }
         }
     }
@@ -1444,9 +1422,9 @@ module Rainbow.Runtime {
                         var n = newFlat[newIndex];
                         var o = master[masterIndex++];
 
-                        var diff_handler = handlers[o.type].diff;
-                        if (diff_handler) {
-                            result.push(diff_handler(n, o));
+                        var determineAction_handler = handlers[o.type].determineAction;
+                        if (determineAction_handler) {
+                            result.push(determineAction_handler(n, o));
                         }
                         else {
                             n.action = "update";
